@@ -3,7 +3,7 @@ set -e
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "Installing ChurchBellsSystem..."
+echo "Installing ChurchBell..."
 
 sudo apt-get update
 sudo apt-get install -y python3 python3-venv python3-pip alsa-utils sox
@@ -39,32 +39,40 @@ EOF
 echo "Creating systemd services..."
 
 # Home page on port 80
-sudo bash -c "cat >/etc/systemd/system/churchbells-home.service" <<EOF
+sudo bash -c "cat > /etc/systemd/system/churchbells-home.service" <<EOF
 [Unit]
 Description=Church Bells Home Page
 After=network.target
 
 [Service]
+Type=simple
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/home.py
 Restart=always
 User=pi
+Environment="PYTHONUNBUFFERED=1"
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 # Bell scheduler on port 8080
-sudo bash -c "cat >/etc/systemd/system/churchbells.service" <<EOF
+sudo bash -c "cat > /etc/systemd/system/churchbells.service" <<EOF
 [Unit]
 Description=Church Bells Scheduler
 After=network.target sound.target
 
 [Service]
+Type=simple
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/app.py
 Restart=always
 User=pi
+Environment="PYTHONUNBUFFERED=1"
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -78,5 +86,5 @@ sudo systemctl start churchbells.service
 
 echo "Install complete."
 echo "Services installed and started."
-echo "Bell Scheduler: http://<pi-ip>:8080"
 echo "Home Page:      http://<pi-ip>/"
+echo "Bell Scheduler: http://<pi-ip>:8080"
