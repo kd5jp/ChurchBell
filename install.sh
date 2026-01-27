@@ -8,10 +8,8 @@ echo "Installing ChurchBellsSystem..."
 sudo apt-get update
 sudo apt-get install -y python3 python3-venv python3-pip alsa-utils sox
 
-if ! id "churchbell" &>/dev/null; then
-    sudo useradd -r -s /usr/sbin/nologin churchbell
-fi
-sudo chown -R churchbell:churchbell "$APP_DIR"
+# Ensure pi owns the app directory
+sudo chown -R pi:pi "$APP_DIR"
 
 cd "$APP_DIR"
 
@@ -19,6 +17,7 @@ cd "$APP_DIR"
 if [ ! -d venv ]; then
   python3 -m venv venv
 fi
+
 source venv/bin/activate
 pip install --upgrade pip
 pip install flask
@@ -33,14 +32,13 @@ fi
 # First run to initialize DB
 echo "Initializing database..."
 python3 - <<EOF
-from app import init_db, start_scheduler
+from app import init_db
 init_db()
 EOF
 
-echo "Install complete."
-echo "Run with: source venv/bin/activate && python3 app.py"
 echo "Creating systemd services..."
 
+# Home page on port 80
 sudo bash -c "cat >/etc/systemd/system/churchbells-home.service" <<EOF
 [Unit]
 Description=Church Bells Home Page
@@ -50,12 +48,13 @@ After=network.target
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/home.py
 Restart=always
-User=churchbell
+User=pi
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
+# Bell scheduler on port 8080
 sudo bash -c "cat >/etc/systemd/system/churchbells.service" <<EOF
 [Unit]
 Description=Church Bells Scheduler
@@ -65,7 +64,7 @@ After=network.target sound.target
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/app.py
 Restart=always
-User=churchbell
+User=pi
 
 [Install]
 WantedBy=multi-user.target
@@ -77,4 +76,7 @@ sudo systemctl enable churchbells.service
 sudo systemctl start churchbells-home.service
 sudo systemctl start churchbells.service
 
+echo "Install complete."
 echo "Services installed and started."
+echo "Bell Scheduler: http://<pi-ip>:8080"
+echo "Home Page:      http://<pi-ip>/"
