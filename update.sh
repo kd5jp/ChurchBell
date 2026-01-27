@@ -37,6 +37,8 @@ if ls "$APP_DIR"/*.sh >/dev/null 2>&1; then
 else
   echo "[INFO] No .sh scripts found to chmod."
 fi
+chmod +x "$APP_DIR/sync_cron.py"
+chmod +x "$APP_DIR/play_alarm.sh"
 # Restart services
 echo "[INFO] Restarting systemd services..."
 sudo systemctl daemon-reload
