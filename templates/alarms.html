@@ -28,57 +28,41 @@ updateClock();
 </script>
 
 <!-- Alarms Section -->
-<div class="card mb-4">
-  <div class="card-header"><h4 class="mb-0">Alarms</h4></div>
-  <div class="card-body p-0">
-    <table class="table table-striped table-sm mb-0 align-middle">
-      <thead class="table-light">
-        <tr>
-          <th>Day</th>
-          <th>Time</th>
-          <th>Sound</th>
-          <th>Enabled</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% set days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] %}
-        {% for alarm in alarms %}
-        <tr>
-          <form method="POST" action="{{ url_for('update_alarm', alarm_id=alarm.id) }}">
-            <td>
-              <select name="day" class="form-select form-select-sm">
-                {% for i in range(7) %}
-                  <option value="{{ i }}" {% if i == alarm.day_of_week %}selected{% endif %}>{{ days[i] }}</option>
-                {% endfor %}
-              </select>
-            </td>
-            <td>
-              <input type="time" name="time" value="{{ alarm.time_str }}" class="form-control form-control-sm" required>
-            </td>
-            <td>
-              <select name="sound" class="form-select form-select-sm">
-                {% for s in sounds %}
-                  <option value="sounds/{{ s }}" {% if alarm.sound_path.endswith(s) %}selected{% endif %}>{{ s }}</option>
-                {% endfor %}
-              </select>
-            </td>
-            <td class="text-center">
-              <input type="checkbox" name="enabled" {% if alarm.enabled %}checked{% endif %}>
-            </td>
-            <td class="d-flex gap-1">
-              <button type="submit" class="btn btn-sm btn-success">Save</button>
-              <a href="{{ url_for('toggle_alarm', alarm_id=alarm.id) }}" class="btn btn-sm btn-warning">Toggle</a>
-              <a href="{{ url_for('delete_alarm', alarm_id=alarm.id) }}" class="btn btn-sm btn-danger">Delete</a>
-              <a href="{{ url_for('test_sound', filename=alarm.sound_path.split('/')[-1]) }}" class="btn btn-sm btn-secondary">Test</a>
-            </td>
-          </form>
-        </tr>
+<tbody>
+  {% set days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] %}
+  {% for alarm in alarms %}
+  <tr>
+    <td>
+      <select name="day" form="alarm-{{ alarm.id }}" class="form-select form-select-sm">
+        {% for i in range(7) %}
+          <option value="{{ i }}" {% if i == alarm.day_of_week %}selected{% endif %}>{{ days[i] }}</option>
         {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+      </select>
+    </td>
+    <td>
+      <input type="time" name="time" form="alarm-{{ alarm.id }}" value="{{ alarm.time_str }}" class="form-control form-control-sm" required>
+    </td>
+    <td>
+      <select name="sound" form="alarm-{{ alarm.id }}" class="form-select form-select-sm">
+        {% for s in sounds %}
+          <option value="sounds/{{ s }}" {% if alarm.sound_path.endswith(s) %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td class="text-center">
+      <input type="checkbox" name="enabled" form="alarm-{{ alarm.id }}" {% if alarm.enabled %}checked{% endif %}>
+    </td>
+    <td>
+      <form method="POST" action="{{ url_for('update_alarm', alarm_id=alarm.id) }}" id="alarm-{{ alarm.id }}" class="d-grid gap-2">
+        <button type="submit" class="btn btn-sm btn-success">Save</button>
+        <a href="{{ url_for('toggle_alarm', alarm_id=alarm.id) }}" class="btn btn-sm btn-warning">Toggle</a>
+        <a href="{{ url_for('delete_alarm', alarm_id=alarm.id) }}" class="btn btn-sm btn-danger">Delete</a>
+        <a href="{{ url_for('test_sound', filename=alarm.sound_path.split('/')[-1]) }}" class="btn btn-sm btn-secondary">Test</a>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</tbody>
 
 <!-- Add Alarm Section -->
 <div class="card mb-4">
