@@ -1,8 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 
+<!-- ===========================
+     TOP BAR WITH CLOCK
+=========================== -->
 <div class="top-bar mb-3 d-flex justify-content-between align-items-center">
-  <div>Logged in as {{ session.username }}</div>
+  <div>
+    Logged in as {{ session.username }}
+    <span class="ms-4 fw-bold" id="system-clock"></span>
+  </div>
+
   <div>
     <form method="post" action="{{ url_for('change_password') }}" class="d-inline">
       <input type="password" name="current_password" placeholder="Current" required>
@@ -14,8 +21,18 @@
   </div>
 </div>
 
+<script>
+function updateClock() {
+  const now = new Date();
+  const clock = document.getElementById("system-clock");
+  clock.textContent = now.toLocaleString();
+}
+setInterval(updateClock, 1000);
+updateClock();
+</script>
+
 <!-- ===========================
-     ALARMS CARD
+     1. ALARMS SECTION
 =========================== -->
 <div class="card mb-4">
   <div class="card-header">
@@ -30,7 +47,7 @@
           <th>Time</th>
           <th>Sound</th>
           <th>Enabled</th>
-          <th style="width: 200px;">Actions</th>
+          <th style="width: 240px;">Actions</th>
         </tr>
       </thead>
 
@@ -82,7 +99,7 @@
 </div>
 
 <!-- ===========================
-     ADD ALARM CARD
+     2. ADD ALARM SECTION
 =========================== -->
 <div class="card mb-4">
   <div class="card-header">
@@ -135,7 +152,7 @@
 </div>
 
 <!-- ===========================
-     AVAILABLE SOUNDS CARD
+     3. AVAILABLE SOUNDS SECTION
 =========================== -->
 <div class="card mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -169,44 +186,5 @@
     </table>
   </div>
 </div>
-
-<!-- ===========================
-     VOLUME SLIDER CARD
-=========================== -->
-<div class="card mb-4">
-  <div class="card-header">
-    <h4 class="mb-0">Volume</h4>
-  </div>
-
-  <div class="card-body">
-    <label for="volume" class="form-label">
-      Volume: <span id="volume-value">{{ volume }}</span>%
-    </label>
-    <input type="range" id="volume" min="0" max="100" value="{{ volume }}" class="form-range">
-  </div>
-</div>
-
-<script>
-const volumeSlider = document.getElementById('volume');
-const volumeValue = document.getElementById('volume-value');
-
-volumeSlider.addEventListener('input', () => {
-  volumeValue.textContent = volumeSlider.value;
-});
-
-let volumeTimeout = null;
-volumeSlider.addEventListener('change', () => {
-  if (volumeTimeout) clearTimeout(volumeTimeout);
-  volumeTimeout = setTimeout(() => {
-    const formData = new FormData();
-    formData.append('volume', volumeSlider.value);
-    fetch('{{ url_for("set_volume") }}', {
-      method: 'POST',
-      body: formData,
-      credentials: 'same-origin'
-    });
-  }, 200);
-});
-</script>
 
 {% endblock %}
