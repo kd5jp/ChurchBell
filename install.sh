@@ -60,11 +60,14 @@ EOF
 
 # Bell scheduler on port 8080
 sudo bash -c "cat > /etc/systemd/system/churchbells.service" <<EOF
+
 [Unit]
 Description=Church Bells Scheduler
 After=network.target sound.target
 
 [Service]
+chmod +x "$APP_DIR/sync_cron.py"
+chmod +x "$APP_DIR/play_alarm.sh"
 Type=simple
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/app.py
