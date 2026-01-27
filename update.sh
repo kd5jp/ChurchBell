@@ -1,18 +1,41 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICE_HOME="churchbells-home.service"
+SERVICE_MAIN="churchbells.service"
+
+echo "[INFO] Updating ChurchBell..."
+
 cd "$APP_DIR"
 
-echo "Updating ChurchBellsSystem code (no DB changes)..."
+# Optional: pull latest code if repo exists
+if [ -d .git ]; then
+  echo "[INFO] Pulling latest changes from GitHub..."
+  git fetch --all
+  git reset --hard origin/main || true
+fi
 
-# Here you might: git pull, reinstall deps, etc.
-# For now, just reinstall requirements in case app.py changed imports.
+# Ensure correct ownership
+echo "[INFO] Ensuring pi owns the application directory..."
+sudo chown -R pi:pi "$APP_DIR"
 
+# Update Python environment
 if [ -d venv ]; then
+  echo "[INFO] Updating Python dependencies..."
   source venv/bin/activate
   pip install --upgrade pip
   pip install flask
+  deactivate
+else
+  echo "[WARN] No virtual environment found. Run install.sh first."
 fi
 
-echo "Update complete. Restart your service or app.py if running."
+# Restart services
+echo "[INFO] Restarting systemd services..."
+sudo systemctl daemon-reload
+sudo systemctl restart "$SERVICE_HOME" || true
+sudo systemctl restart "$SERVICE_MAIN" || true
+
+echo "[INFO] Update complete."
+echo "[INFO] Services restarted successfully."
