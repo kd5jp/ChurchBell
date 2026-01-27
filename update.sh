@@ -30,7 +30,13 @@ if [ -d venv ]; then
 else
   echo "[WARN] No virtual environment found. Run install.sh first."
 fi
-
+echo "[INFO] Normalizing script permissions..."
+if ls "$APP_DIR"/*.sh >/dev/null 2>&1; then
+  chmod +x "$APP_DIR"/*.sh
+  echo "[INFO] Script permissions updated."
+else
+  echo "[INFO] No .sh scripts found to chmod."
+fi
 # Restart services
 echo "[INFO] Restarting systemd services..."
 sudo systemctl daemon-reload
