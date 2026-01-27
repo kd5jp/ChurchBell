@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="top-bar">
+  <div>Logged in as {{ session.username }}</div>
+  <div>
+    <form method="post" action="{{ url_for('change_password') }}" class="inline-form">
+      <input type="password" name="current_password" placeholder="Current" required>
+      <input type="password" name="new_password" placeholder="New" required>
+      <input type="password" name="confirm_password" placeholder="Confirm" required>
+      <button type="submit">Change Password</button>
+    </form>
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </div>
+</div>
+
+<h2>Alarms</h2>
+
+<table class="alarms-table">
+  <thead>
+    <tr>
+      <th>Day</th>
+      <th>Time</th>
+      <th>Sound</th>
+      <th>Enabled</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for alarm in alarms %}
+    <tr>
+      <td>
+        {% set days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] %}
+        {{ days[alarm.day_of_week] }}
+      </td>
+      <td>{{ alarm.time_str }}</td>
+      <td>{{ alarm.sound_path }}</td>
+      <td>{{ "Yes" if alarm.enabled else "No" }}</td>
+      <td>
+        <a href="{{ url_for('toggle_alarm', alarm_id=alarm.id) }}">Toggle</a>
+        <a href="{{ url_for('delete_alarm', alarm_id=alarm.id) }}">Delete</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3>Add Alarm</h3>
+<form method="post" action="{{ url_for('add_alarm') }}" class="add-alarm-form">
+  <label>Day of Week</label>
+  <select name="day_of_week">
+    <option value="0">Monday</option>
+    <option value="1">Tuesday</option>
+    <option value="2">Wednesday</option>
+    <option value="3">Thursday</option>
+    <option value="4">Friday</option>
+    <option value="5">Saturday</option>
+    <option value="6">Sunday</option>
+  </select>
+
+  <label>Time (HH:MM)</label>
+  <input type="time" name="time_str" required>
+
+  <label>Sound Path</label>
+  <input type="text" name="sound_path" value="sounds/chime.wav">
+
+  <label>
+    <input type="checkbox" name="enabled" checked> Enabled
+  </label>
+
+  <button type="submit">Add</button>
+</form>
+
+<div class="volume-slider-container">
+  <label for="volume">Volume: <span id="volume-value">{{ volume }}</span>%</label>
+  <input type="range" id="volume" min="0" max="100" value="{{ volume }}">
+</div>
+
+<script>
+const volumeSlider = document.getElementById('volume');
+const volumeValue = document.getElementById('volume-value');
+
+volumeSlider.addEventListener('input', () => {
+  volumeValue.textContent = volumeSlider.value;
+});
+
+let volumeTimeout = null;
+volumeSlider.addEventListener('change', () => {
+  if (volumeTimeout) clearTimeout(volumeTimeout);
+  volumeTimeout = setTimeout(() => {
+    const formData = new FormData();
+    formData.append('volume', volumeSlider.value);
+    fetch('{{ url_for("set_volume") }}', {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+  }, 200);
+});
+</script>
+{% endblock %}
