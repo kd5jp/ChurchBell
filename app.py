@@ -2,11 +2,12 @@ import os
 import sqlite3
 import subprocess
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, session, flash, g
+from flask import Flask, render_template, request, redirect, url_for, session, flash, g, send_file
 
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = APP_DIR / "bells.db"
 SOUNDS_DIR = APP_DIR / "sounds"
+BACKUPS_DIR = APP_DIR / "backups"
 
 DEFAULT_USERNAME = os.getenv("CHURCHBELL_ADMIN_USER", "admin")
 DEFAULT_PASSWORD = os.getenv("CHURCHBELL_ADMIN_PASS", "changeme")  # stored as plain text for now, appliance-style
@@ -297,6 +298,55 @@ def delete_sound(filename):
     if path.exists():
         path.unlink()
     return redirect(url_for("alarms"))
+
+
+# ---------- backup & restore ----------
+
+@app.route("/download_latest")
+@login_required
+def download_latest():
+    latest_backup = BACKUPS_DIR / "churchbells-backup-latest.zip"
+    if not latest_backup.exists():
+        try:
+            subprocess.run(
+                [str(APP_DIR / "backup.sh")],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass
+    if not latest_backup.exists():
+        return ("No backup available.", 404)
+    return send_file(latest_backup, as_attachment=True)
+
+
+@app.route("/restore_backup", methods=["POST"])
+@login_required
+def restore_backup():
+    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    upload = request.files.get("backupFile")
+    if not upload:
+        return ("No backup file provided.", 400)
+
+    upload_path = BACKUPS_DIR / "restore-upload.zip"
+    upload.save(upload_path)
+
+    try:
+        result = subprocess.run(
+            [str(APP_DIR / "restore.sh"), str(upload_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except Exception as exc:
+        return (f"Restore failed: {exc}", 500)
+
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip()
+        return (f"Restore failed: {stderr or 'unknown error'}", 500)
+
+    return ("Restore completed. Refresh the page in a few seconds.", 200)
 
 
 # ---------- volume ----------
