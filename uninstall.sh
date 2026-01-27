@@ -13,17 +13,20 @@ if [[ "$ans" != "y" && "$ans" != "Y" ]]; then
 fi
 
 echo "Stopping services..."
-sudo systemctl stop churchbells-home.service || true
-sudo systemctl stop churchbells.service || true
+sudo systemctl stop churchbells-home.service 2>/dev/null || true
+sudo systemctl stop churchbells.service 2>/dev/null || true
 
 echo "Disabling services..."
-sudo systemctl disable churchbells-home.service || true
-sudo systemctl disable churchbells.service || true
+sudo systemctl disable churchbells-home.service 2>/dev/null || true
+sudo systemctl disable churchbells.service 2>/dev/null || true
 
 echo "Removing systemd unit files..."
 sudo rm -f /etc/systemd/system/churchbells-home.service
 sudo rm -f /etc/systemd/system/churchbells.service
+
+# Clean up systemd state
 sudo systemctl daemon-reload
+sudo systemctl reset-failed 2>/dev/null || true
 
 echo "Removing virtual environment and database..."
 rm -rf "$APP_DIR/venv"
