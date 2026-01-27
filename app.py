@@ -23,7 +23,11 @@ app.config["SESSION_COOKIE_SECURE"] = False  # set True if using HTTPS
 
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
+        g.db = sqlite3.connect(
+            DB_PATH,
+            timeout=5,
+            check_same_thread=False
+        )
         g.db.row_factory = sqlite3.Row
     return g.db
 
@@ -34,7 +38,7 @@ def close_db(exc):
         db.close()
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=5, check_same_thread=False)
     cur = conn.cursor()
 
     # users table
@@ -50,11 +54,11 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS alarms (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            day_of_week INTEGER NOT NULL,   -- 0=Monday ... 6=Sunday
-            time_str TEXT NOT NULL,         -- "HH:MM"
+            day_of_week INTEGER NOT NULL,
+            time_str TEXT NOT NULL,
             sound_path TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1,
-            last_run_date TEXT              -- "YYYY-MM-DD" to avoid double fire
+            last_run_date TEXT
         )
     """)
 
@@ -226,7 +230,6 @@ def set_volume():
     )
     db.commit()
 
-    # Try to set system volume (amixer); ignore errors
     try:
         subprocess.run(
             ["amixer", "sset", "Master", f"{vol}%"],
@@ -242,7 +245,7 @@ def set_volume():
 # ---------- playback & scheduler ----------
 
 def get_current_volume():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=5, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     row = cur.execute(
@@ -255,7 +258,6 @@ def play_sound(sound_path):
     full_path = str((APP_DIR / sound_path).resolve())
     if not os.path.exists(full_path):
         return
-    # Simple aplay; you can swap this out later
     try:
         subprocess.run(
             ["aplay", full_path],
@@ -270,11 +272,11 @@ def scheduler_loop():
     while True:
         try:
             now = datetime.datetime.now()
-            dow = (now.weekday())  # 0=Monday
+            dow = now.weekday()
             current_time = now.strftime("%H:%M")
             today_str = now.strftime("%Y-%m-%d")
 
-            conn = sqlite3.connect(DB_PATH)
+            conn = sqlite3.connect(DB_PATH, timeout=5, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
             cur.execute(
@@ -291,7 +293,7 @@ def scheduler_loop():
 
             for row in rows:
                 if row["last_run_date"] == today_str:
-                    continue  # already fired today
+                    continue
                 play_sound(row["sound_path"])
                 cur.execute(
                     "UPDATE alarms SET last_run_date = ? WHERE id = ?",
@@ -301,10 +303,9 @@ def scheduler_loop():
 
             conn.close()
         except Exception:
-            # keep scheduler alive no matter what
             pass
 
-        time.sleep(30)  # check twice a minute
+        time.sleep(30)
 
 def start_scheduler():
     t = threading.Thread(target=scheduler_loop, daemon=True)
@@ -317,4 +318,4 @@ if __name__ == "__main__":
         SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
     init_db()
     start_scheduler()
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)
