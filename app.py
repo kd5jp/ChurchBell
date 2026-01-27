@@ -1,9 +1,5 @@
-
 import os
 import sqlite3
-import threading
-import time
-import datetime
 import subprocess
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g
@@ -19,6 +15,22 @@ app = Flask(__name__)
 app.secret_key = "change-this-secret-key"  # replace in production
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = False  # set True if using HTTPS
+
+
+# ---------- CRON SYNC HELPER ----------
+
+def sync_cron():
+    """Rebuild system crontab from DB alarms."""
+    try:
+        subprocess.run(
+            [str(APP_DIR / "sync_cron.py")],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        pass
+
 
 # ---------- DB helpers ----------
 
@@ -88,6 +100,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 # ---------- auth ----------
 
 def login_required(view):
@@ -152,6 +165,7 @@ def change_password():
     flash("Password updated.", "success")
     return redirect(url_for("alarms"))
 
+
 # ---------- alarms ----------
 
 @app.route("/")
@@ -171,7 +185,6 @@ def alarms():
     ).fetchone()
     volume = settings["volume"] if settings else 70
 
-    # list available WAV files
     sound_files = sorted([
         f for f in os.listdir(SOUNDS_DIR)
         if f.lower().endswith(".wav")
@@ -183,6 +196,7 @@ def alarms():
         volume=volume,
         sounds=sound_files,
     )
+
 
 @app.route("/add_alarm", methods=["POST"])
 @login_required
@@ -198,7 +212,10 @@ def add_alarm():
         (day, time_str, sound, enabled),
     )
     db.commit()
+
+    sync_cron()
     return redirect(url_for("alarms"))
+
 
 @app.route("/toggle_alarm/<int:alarm_id>")
 @login_required
@@ -208,6 +225,7 @@ def toggle_alarm(alarm_id):
         "SELECT enabled FROM alarms WHERE id = ?",
         (alarm_id,),
     ).fetchone()
+
     if row:
         new_val = 0 if row["enabled"] else 1
         db.execute(
@@ -215,7 +233,10 @@ def toggle_alarm(alarm_id):
             (new_val, alarm_id),
         )
         db.commit()
+
+    sync_cron()
     return redirect(url_for("alarms"))
+
 
 @app.route("/delete_alarm/<int:alarm_id>")
 @login_required
@@ -223,7 +244,10 @@ def delete_alarm(alarm_id):
     db = get_db()
     db.execute("DELETE FROM alarms WHERE id = ?", (alarm_id,))
     db.commit()
+
+    sync_cron()
     return redirect(url_for("alarms"))
+
 
 @app.route("/update_alarm/<int:alarm_id>", methods=["POST"])
 @login_required
@@ -244,14 +268,15 @@ def update_alarm(alarm_id):
     )
     db.commit()
 
+    sync_cron()
     return redirect(url_for("alarms"))
+
 
 # ---------- sound management ----------
 
 @app.route("/test_sound/<path:filename>")
 @login_required
 def test_sound(filename):
-    # filename is just the basename; we always serve from SOUNDS_DIR
     sound_path = f"sounds/{filename}"
     play_sound(sound_path)
     return ("", 204)
@@ -272,6 +297,7 @@ def delete_sound(filename):
     if path.exists():
         path.unlink()
     return redirect(url_for("alarms"))
+
 
 # ---------- volume ----------
 
@@ -303,17 +329,8 @@ def set_volume():
 
     return ("", 204)
 
-# ---------- playback & scheduler ----------
 
-def get_current_volume():
-    conn = sqlite3.connect(DB_PATH, timeout=5, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-    row = cur.execute(
-        "SELECT volume FROM settings WHERE id = 1"
-    ).fetchone()
-    conn.close()
-    return row["volume"] if row else 70
+# ---------- playback ----------
 
 def play_sound(sound_path):
     full_path = str((APP_DIR / sound_path).resolve())
@@ -328,46 +345,6 @@ def play_sound(sound_path):
         )
     except Exception:
         pass
-
-def scheduler_loop():
-    while True:
-        try:
-            now = datetime.datetime.now()
-            dow = now.weekday()
-            current_time = now.strftime("%H:%M")
-            today_str = now.strftime("%Y-%m-%d")
-
-            conn = sqlite3.connect(DB_PATH, timeout=5, check_same_thread=False)
-            conn.row_factory = sqlite3.Row
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT id, sound_path, last_run_date
-                FROM alarms
-                WHERE enabled = 1
-                  AND day_of_week = ?
-                  AND time_str = ?
-                """,
-                (dow, current_time),
-            )
-            rows = cur.fetchall()
-
-            for row in rows:
-                if row["last_run_date"] == today_str:
-                    continue
-                play_sound(row["sound_path"])
-                cur.execute(
-                    "UPDATE alarms SET last_run_date = ? WHERE id = ?",
-                    (today_str, row["id"]),
-                )
-                conn.commit()
-
-            conn.close()
-        except Exception:
-            pass
-
-        time.sleep(30)
-
 
 
 # ---------- main ----------
