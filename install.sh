@@ -34,3 +34,42 @@ EOF
 
 echo "Install complete."
 echo "Run with: source venv/bin/activate && python3 app.py"
+echo "Creating systemd services..."
+
+sudo bash -c "cat >/etc/systemd/system/churchbells-home.service" <<EOF
+[Unit]
+Description=Church Bells Home Page
+After=network.target
+
+[Service]
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/home.py
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo bash -c "cat >/etc/systemd/system/churchbells.service" <<EOF
+[Unit]
+Description=Church Bells Scheduler
+After=network.target sound.target
+
+[Service]
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/app.py
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable churchbells-home.service
+sudo systemctl enable churchbells.service
+sudo systemctl start churchbells-home.service
+sudo systemctl start churchbells.service
+
+echo "Services installed and started."
