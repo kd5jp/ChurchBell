@@ -1,21 +1,52 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Church Bells</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+  <meta charset="UTF-8">
+  <title>ChurchBell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-VkTXQbN4Zz6s1eZl+8z1ZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZl"
+    crossorigin="anonymous"
+  >
+
+  <!-- Optional: Bootstrap JS for dropdowns, modals, etc. -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeoYz1D1z0rU9z1ZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZlZl"
+    crossorigin="anonymous"
+  ></script>
+
+  <!-- Optional: Custom CSS -->
+  <style>
+    body {
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+    .top-bar {
+      background: #e9ecef;
+      padding: 10px 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    .card {
+      box-shadow: 0 0 4px rgba(0,0,0,0.1);
+    }
+    .form-control,
+    .form-select {
+      font-size: 0.9rem;
+    }
+    .btn-sm {
+      margin-right: 4px;
+    }
+  </style>
 </head>
 <body>
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="flash-container">
-        {% for category, message in messages %}
-          <div class="flash flash-{{ category }}">{{ message }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
-  {% block content %}{% endblock %}
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
 </body>
 </html>
