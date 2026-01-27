@@ -134,4 +134,35 @@ updateClock();
   </div>
 </div>
 
+<!-- 🔄 Backup & Restore Section -->
+<div class="card mb-4">
+  <div class="card-header"><h4 class="mb-0">Backup & Restore</h4></div>
+  <div class="card-body">
+    <div class="d-flex gap-3 mb-3">
+      <button class="btn btn-sm btn-outline-primary" onclick="downloadBackup()">Download Latest Backup</button>
+    </div>
+    <form id="uploadForm" enctype="multipart/form-data" class="d-flex gap-2">
+      <input type="file" name="backupFile" accept=".zip" class="form-control form-control-sm" required>
+      <button type="submit" class="btn btn-sm btn-outline-success">Upload & Restore</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function downloadBackup() {
+  window.location.href = "{{ url_for('download_latest') }}";
+}
+
+document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const response = await fetch("{{ url_for('restore_backup') }}", {
+    method: "POST",
+    body: formData
+  });
+  const text = await response.text();
+  alert(text);
+});
+</script>
+
 {% endblock %}
