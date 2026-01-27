@@ -1,49 +1,65 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -e
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICE_HOME="churchbells-home.service"
-SERVICE_MAIN="churchbells.service"
+APP_DIR="/home/pi/ChurchBell"
+VENV_DIR="$APP_DIR/venv"
+SERVICE_NAME="churchbell.service"
 
-echo "[INFO] Updating ChurchBell..."
+echo "=== ChurchBell Updater ==="
+echo "Updating application in: $APP_DIR"
+echo ""
 
+# ------------------------------------------------------------
+# 1. Pull latest code from GitHub
+# ------------------------------------------------------------
+echo "[1/6] Pulling latest changes from GitHub..."
 cd "$APP_DIR"
+git reset --hard HEAD
+git pull --rebase
 
-# Optional: pull latest code if repo exists
-if [ -d .git ]; then
-  echo "[INFO] Pulling latest changes from GitHub..."
-  git fetch --all
-  git reset --hard origin/main || true
+# ------------------------------------------------------------
+# 2. Ensure Python venv exists
+# ------------------------------------------------------------
+echo "[2/6] Ensuring Python virtual environment exists..."
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Virtual environment missing — creating..."
+    python3 -m venv "$VENV_DIR"
 fi
 
-# Ensure correct ownership
-echo "[INFO] Ensuring pi owns the application directory..."
-sudo chown -R pi:pi "$APP_DIR"
+source "$VENV_DIR/bin/activate"
 
-# Update Python environment
-if [ -d venv ]; then
-  echo "[INFO] Updating Python dependencies..."
-  source venv/bin/activate
-  pip install --upgrade pip
-  pip install flask
-  deactivate
-else
-  echo "[WARN] No virtual environment found. Run install.sh first."
-fi
-echo "[INFO] Normalizing script permissions..."
-if ls "$APP_DIR"/*.sh >/dev/null 2>&1; then
-  chmod +x "$APP_DIR"/*.sh
-  echo "[INFO] Script permissions updated."
-else
-  echo "[INFO] No .sh scripts found to chmod."
-fi
-chmod +x "$APP_DIR/sync_cron.py"
-chmod +x "$APP_DIR/play_alarm.sh"
-# Restart services
-echo "[INFO] Restarting systemd services..."
+# ------------------------------------------------------------
+# 3. Install/update Python dependencies
+# ------------------------------------------------------------
+echo "[3/6] Updating Python packages..."
+pip install --upgrade pip
+pip install flask
+
+# ------------------------------------------------------------
+# 4. Fix permissions (self‑healing)
+# ------------------------------------------------------------
+echo "[4/6] Fixing script permissions..."
+chmod +x "$APP_DIR/install.sh" || true
+chmod +x "$APP_DIR/update.sh" || true
+chmod +x "$APP_DIR/sync_cron.py" || true
+chmod +x "$APP_DIR/play_alarm.sh" || true
+
+chown -R pi:pi "$APP_DIR"
+
+# ------------------------------------------------------------
+# 5. Sync cron with DB alarms
+# ------------------------------------------------------------
+echo "[5/6] Syncing cron with alarms..."
+python3 "$APP_DIR/sync_cron.py" || true
+
+# ------------------------------------------------------------
+# 6. Restart systemd service
+# ------------------------------------------------------------
+echo "[6/6] Restarting ChurchBell service..."
 sudo systemctl daemon-reload
-sudo systemctl restart "$SERVICE_HOME" || true
-sudo systemctl restart "$SERVICE_MAIN" || true
+sudo systemctl restart "$SERVICE_NAME"
 
-echo "[INFO] Update complete."
-echo "[INFO] Services restarted successfully."
+echo ""
+echo "=== Update complete ==="
+echo "ChurchBell is now running the latest version."
+echo ""
