@@ -39,7 +39,7 @@ def close_db(exc):
 
 def init_db():
     conn = sqlite3.connect(DB_PATH, timeout=5, check_same_thread=False)
-    conn.row_factory = sqlite3.Row   # <-- REQUIRED FIX
+    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
     # users table
@@ -170,7 +170,18 @@ def alarms():
     ).fetchone()
     volume = settings["volume"] if settings else 70
 
-    return render_template("alarms.html", alarms=alarms, volume=volume)
+    # list available WAV files
+    sound_files = sorted([
+        f for f in os.listdir(SOUNDS_DIR)
+        if f.lower().endswith(".wav")
+    ])
+
+    return render_template(
+        "alarms.html",
+        alarms=alarms,
+        volume=volume,
+        sounds=sound_files,
+    )
 
 @app.route("/add_alarm", methods=["POST"])
 @login_required
@@ -211,6 +222,54 @@ def delete_alarm(alarm_id):
     db = get_db()
     db.execute("DELETE FROM alarms WHERE id = ?", (alarm_id,))
     db.commit()
+    return redirect(url_for("alarms"))
+
+@app.route("/update_alarm/<int:alarm_id>", methods=["POST"])
+@login_required
+def update_alarm(alarm_id):
+    day = int(request.form["day"])
+    time_str = request.form["time"]
+    sound = request.form["sound"]
+    enabled = 1 if request.form.get("enabled") == "on" else 0
+
+    db = get_db()
+    db.execute(
+        """
+        UPDATE alarms
+        SET day_of_week=?, time_str=?, sound_path=?, enabled=?
+        WHERE id=?
+        """,
+        (day, time_str, sound, enabled, alarm_id),
+    )
+    db.commit()
+
+    return redirect(url_for("alarms"))
+
+# ---------- sound management ----------
+
+@app.route("/test_sound/<path:filename>")
+@login_required
+def test_sound(filename):
+    # filename is just the basename; we always serve from SOUNDS_DIR
+    sound_path = f"sounds/{filename}"
+    play_sound(sound_path)
+    return ("", 204)
+
+@app.route("/upload_sound", methods=["POST"])
+@login_required
+def upload_sound():
+    file = request.files.get("file")
+    if file and file.filename.lower().endswith(".wav"):
+        dest = SOUNDS_DIR / file.filename
+        file.save(dest)
+    return redirect(url_for("alarms"))
+
+@app.route("/delete_sound/<path:filename>")
+@login_required
+def delete_sound(filename):
+    path = SOUNDS_DIR / filename
+    if path.exists():
+        path.unlink()
     return redirect(url_for("alarms"))
 
 # ---------- volume ----------
