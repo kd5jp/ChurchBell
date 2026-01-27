@@ -45,8 +45,8 @@ This project provides a reliable, easy‑to‑use system for scheduling and play
 Clone the repository:
 
 ```bash
-    git clone https://github.com/kd5jp/ChurchBellsSystem.git
-    cd ChurchBellsSystem
+git clone https://github.com/kd5jp/ChurchBellsSystem.git
+cd ChurchBellsSystem
 ```
 Before running the installer, ensure the pi user exists and has the correct groups:
 
