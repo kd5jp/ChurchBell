@@ -1,9 +1,11 @@
 #!/bin/bash
 set -e
 
-APP_DIR="/home/pi/ChurchBell"
+APP_DIR="${CHURCHBELL_APP_DIR:-/opt/church-bells}"
 VENV_DIR="$APP_DIR/venv"
 SERVICE_NAME="churchbell.service"
+HOME_SERVICE_NAME="churchbell-home.service"
+SERVICE_USER="${CHURCHBELL_SERVICE_USER:-churchbells}"
 
 echo "=== ChurchBell Updater ==="
 echo "Updating application in: $APP_DIR"
@@ -40,9 +42,6 @@ pip install flask
 # ------------------------------------------------------------
 echo "[INFO] Fixing script permissions..."
 
-# Default APP_DIR if not set
-APP_DIR="${APP_DIR:-/opt/church-bells}"
-
 # List of scripts to normalize
 SCRIPTS=(
   diagnostics.sh
@@ -66,7 +65,7 @@ for script in "${SCRIPTS[@]}"; do
 done
 
 
-chown -R pi:pi "$APP_DIR"
+chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
 
 # ------------------------------------------------------------
 # 5. Sync cron with DB alarms
@@ -77,9 +76,10 @@ python3 "$APP_DIR/sync_cron.py" || true
 # ------------------------------------------------------------
 # 6. Restart systemd service
 # ------------------------------------------------------------
-echo "[6/6] Restarting ChurchBell service..."
+echo "[6/6] Restarting ChurchBell services..."
 sudo systemctl daemon-reload
 sudo systemctl restart "$SERVICE_NAME"
+sudo systemctl restart "$HOME_SERVICE_NAME"
 
 echo ""
 echo "=== Update complete ==="

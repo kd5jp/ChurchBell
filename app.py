@@ -8,8 +8,8 @@ APP_DIR = Path(__file__).resolve().parent
 DB_PATH = APP_DIR / "bells.db"
 SOUNDS_DIR = APP_DIR / "sounds"
 
-DEFAULT_USERNAME = "admin"
-DEFAULT_PASSWORD = "changeme"  # stored as plain text for now, appliance-style
+DEFAULT_USERNAME = os.getenv("CHURCHBELL_ADMIN_USER", "admin")
+DEFAULT_PASSWORD = os.getenv("CHURCHBELL_ADMIN_PASS", "changeme")  # stored as plain text for now, appliance-style
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"  # replace in production

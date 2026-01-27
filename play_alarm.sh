@@ -1,5 +1,5 @@
 #!/bin/bash
-APP_DIR="/home/pi/ChurchBell"
+APP_DIR="${CHURCHBELL_APP_DIR:-/opt/church-bells}"
 SOUND_PATH="$1"
 
 if [ -z "$SOUND_PATH" ]; then

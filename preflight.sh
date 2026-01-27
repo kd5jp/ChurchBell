@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_DIR="/home/pi/ChurchBell"
+APP_DIR="${CHURCHBELL_APP_DIR:-/opt/church-bells}"
 
 echo "=== ChurchBell Preflight Check ==="
 echo ""

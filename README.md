@@ -22,10 +22,10 @@ This project provides a reliable, easy‑to‑use system for scheduling and play
 - Runs independently from the scheduler service
 
 ### 🛠️ System Architecture
-- Runs under the **pi** user for predictable audio/device permissions
+- Runs under a dedicated service user for predictable audio/device permissions
 - Two systemd services:
-  - `churchbells-home.service` (port 80)
-  - `churchbells.service` (port 8080)
+  - `churchbell-home.service` (port 80)
+  - `churchbell.service` (port 8080)
 - Designed for future modular services (announcements, livestream, admin tools, etc.)
 
 ---
@@ -48,22 +48,28 @@ Clone the repository:
 git clone https://github.com/kd5jp/ChurchBell.git
 cd ChurchBell
 ```
-Before running the installer, ensure the pi user exists and has the correct groups:
-
-```bash
-sudo usermod -aG audio,video,gpio,input,spi,i2c,dialout pi
-```
 Then run:
 
 ```bash
 ./install.sh
 ```
+
+Optional: customize the service user, install dir, and initial admin login:
+
+```bash
+CHURCHBELL_SERVICE_USER=NewHope \
+CHURCHBELL_APP_DIR=/opt/church-bells \
+CHURCHBELL_ADMIN_USER=admin \
+CHURCHBELL_ADMIN_PASS=changeme \
+./install.sh
+```
 The installer will:
 - Install dependencies
+- Create or update the service user (adds audio/device groups)
 - Create a Python virtual environment
 - Generate a default chime sound
 - Initialize the database
-- Install and start systemd service
+- Install and start systemd services
 
 Accessing the System
 Home Page (Port 80)
@@ -118,7 +124,7 @@ ChurchBellsSystem/
 ├─ update.sh
 └─ uninstall.sh
 ```
-uture Expansion
+Future Expansion
 This system is intentionally modular. Planned or possible future services include:
 - Text‑to‑speech announcements
 - Livestream monitoring

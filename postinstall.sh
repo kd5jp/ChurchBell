@@ -2,6 +2,7 @@
 set -e
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICE_USER="${CHURCHBELL_SERVICE_USER:-churchbells}"
 
 RED="\e[31m"
 GREEN="\e[32m"
@@ -26,7 +27,7 @@ echo "=== ChurchBell Post‑Install Verification ==="
 # ---------------------------------------------------------
 # 1. Check systemd services
 # ---------------------------------------------------------
-SERVICES=("churchbells-home.service" "churchbells.service")
+SERVICES=("churchbell-home.service" "churchbell.service")
 
 for svc in "${SERVICES[@]}"; do
     if systemctl list-unit-files | grep -q "$svc"; then
@@ -74,10 +75,10 @@ fi
 # 4. Check ownership
 # ---------------------------------------------------------
 OWNER=$(stat -c "%U" "$APP_DIR")
-if [[ "$OWNER" == "pi" ]]; then
-    pass "App directory owned by pi"
+if [[ "$OWNER" == "$SERVICE_USER" ]]; then
+    pass "App directory owned by $SERVICE_USER"
 else
-    fail "App directory owned by $OWNER (expected pi)"
+    fail "App directory owned by $OWNER (expected $SERVICE_USER)"
 fi
 
 # ---------------------------------------------------------

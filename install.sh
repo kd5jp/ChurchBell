@@ -1,23 +1,28 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_DIR="/opt/church-bells"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="${CHURCHBELL_APP_DIR:-/opt/church-bells}"
 SERVICE_FILE="/etc/systemd/system/churchbell.service"
-SERVICE_USER="churchbells"
+HOME_SERVICE_FILE="/etc/systemd/system/churchbell-home.service"
+SERVICE_USER="${CHURCHBELL_SERVICE_USER:-churchbells}"
+ADMIN_USER="${CHURCHBELL_ADMIN_USER:-admin}"
+ADMIN_PASS="${CHURCHBELL_ADMIN_PASS:-changeme}"
 
 echo "=== ChurchBell Installer ==="
 echo "Installing into: $APP_DIR"
+echo "Service user: $SERVICE_USER"
 echo ""
 
 # ------------------------------------------------------------
 # 1. System packages
 # ------------------------------------------------------------
-echo "[1/7] Installing system dependencies..."
+echo "[1/8] Installing system dependencies..."
 sudo apt update
 sudo apt install -y \
     python3 python3-pip python3-venv \
     git cron sqlite3 libsqlite3-dev \
-    alsa-utils dos2unix
+    alsa-utils dos2unix rsync
 
 # ------------------------------------------------------------
 # 2. Create service user
@@ -26,12 +31,24 @@ if ! id "$SERVICE_USER" &>/dev/null; then
   sudo adduser --system --group --home "$APP_DIR" "$SERVICE_USER"
   echo "[INFO] Created service user $SERVICE_USER"
 fi
+sudo usermod -aG audio,video,gpio,input,spi,i2c,dialout "$SERVICE_USER" || true
 
 # ------------------------------------------------------------
-# 3. Create application directories
+# 3. Sync application files
 # ------------------------------------------------------------
-echo "[2/7] Creating application directories..."
-mkdir -p "$APP_DIR"
+echo "[2/8] Syncing application files..."
+sudo mkdir -p "$APP_DIR"
+sudo rsync -a \
+    --exclude "venv" \
+    --exclude "bells.db" \
+    --exclude "sounds" \
+    --exclude "backups" \
+    "$SOURCE_DIR"/ "$APP_DIR"/
+
+# ------------------------------------------------------------
+# 4. Create application directories
+# ------------------------------------------------------------
+echo "[3/8] Creating application directories..."
 mkdir -p "$APP_DIR/sounds"
 mkdir -p "$APP_DIR/templates"
 mkdir -p "$APP_DIR/static"
@@ -41,9 +58,9 @@ mkdir -p "$APP_DIR/backups"
 sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
 
 # ------------------------------------------------------------
-# 4. Python virtual environment
+# 5. Python virtual environment
 # ------------------------------------------------------------
-echo "[3/7] Setting up Python virtual environment..."
+echo "[4/8] Setting up Python virtual environment..."
 cd "$APP_DIR"
 if [ ! -d "venv" ]; then
     sudo -u "$SERVICE_USER" python3 -m venv venv
@@ -52,16 +69,16 @@ fi
 source venv/bin/activate
 
 # ------------------------------------------------------------
-# 5. Install Python dependencies
+# 6. Install Python dependencies
 # ------------------------------------------------------------
-echo "[4/7] Installing Python packages..."
+echo "[5/8] Installing Python packages..."
 pip install --upgrade pip
 pip install flask
 
 # ------------------------------------------------------------
-# 6. Permissions for scripts
+# 7. Permissions for scripts
 # ------------------------------------------------------------
-echo "[5/7] Setting script permissions..."
+echo "[6/8] Setting script permissions..."
 SCRIPTS=(install.sh update.sh sync_cron.py play_alarm.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
@@ -71,9 +88,9 @@ for script in "${SCRIPTS[@]}"; do
 done
 
 # ------------------------------------------------------------
-# 7. Systemd service
+# 8. Systemd services
 # ------------------------------------------------------------
-echo "[6/7] Installing systemd service..."
+echo "[7/8] Installing systemd services..."
 
 sudo bash -c "cat > $SERVICE_FILE" <<EOF
 [Unit]
@@ -83,6 +100,8 @@ After=network.target sound.target
 [Service]
 User=$SERVICE_USER
 WorkingDirectory=$APP_DIR
+Environment="CHURCHBELL_ADMIN_USER=${ADMIN_USER}"
+Environment="CHURCHBELL_ADMIN_PASS=${ADMIN_PASS}"
 ExecStart=$APP_DIR/venv/bin/python app.py
 Restart=always
 
@@ -90,14 +109,34 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
+sudo bash -c "cat > $HOME_SERVICE_FILE" <<EOF
+[Unit]
+Description=ChurchBell Home UI
+After=network.target sound.target
+
+[Service]
+User=$SERVICE_USER
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/venv/bin/python home.py
+Restart=always
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 sudo systemctl daemon-reload
 sudo systemctl enable churchbell.service
+sudo systemctl enable churchbell-home.service
 sudo systemctl restart churchbell.service
+sudo systemctl restart churchbell-home.service
 
 # ------------------------------------------------------------
-# 8. Cron setup
+# 9. Cron setup
 # ------------------------------------------------------------
-echo "[7/7] Ensuring cron is running..."
+echo "[8/8] Ensuring cron is running..."
 sudo systemctl enable cron
 sudo systemctl start cron
 

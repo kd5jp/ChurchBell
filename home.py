@@ -31,8 +31,8 @@ def index():
     scheduler_url = f"http://{host}:8080"
 
     # Get service statuses
-    home_status, home_logs = get_service_status("churchbells-home.service")
-    sched_status, sched_logs = get_service_status("churchbells.service")
+    home_status, home_logs = get_service_status("churchbell-home.service")
+    sched_status, sched_logs = get_service_status("churchbell.service")
 
     # Color helpers
     def colorize(status):

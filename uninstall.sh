@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="${CHURCHBELL_APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+SERVICE_NAME="churchbell.service"
+HOME_SERVICE_NAME="churchbell-home.service"
 
 echo "This will remove the virtual environment, database, and systemd services."
 echo "Your code and sound files will remain untouched."
@@ -13,16 +15,16 @@ if [[ "$ans" != "y" && "$ans" != "Y" ]]; then
 fi
 
 echo "Stopping services..."
-sudo systemctl stop churchbells-home.service 2>/dev/null || true
-sudo systemctl stop churchbells.service 2>/dev/null || true
+sudo systemctl stop "$HOME_SERVICE_NAME" 2>/dev/null || true
+sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 
 echo "Disabling services..."
-sudo systemctl disable churchbells-home.service 2>/dev/null || true
-sudo systemctl disable churchbells.service 2>/dev/null || true
+sudo systemctl disable "$HOME_SERVICE_NAME" 2>/dev/null || true
+sudo systemctl disable "$SERVICE_NAME" 2>/dev/null || true
 
 echo "Removing systemd unit files..."
-sudo rm -f /etc/systemd/system/churchbells-home.service
-sudo rm -f /etc/systemd/system/churchbells.service
+sudo rm -f /etc/systemd/system/churchbell-home.service
+sudo rm -f /etc/systemd/system/churchbell.service
 
 # Clean up systemd state
 sudo systemctl daemon-reload
