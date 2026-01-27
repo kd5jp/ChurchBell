@@ -6,7 +6,12 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Installing ChurchBell..."
 
 sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip alsa-utils sox
+sudo apt install -y \
+    python3 python3-pip python3-venv \
+    git cron sqlite3 libsqlite3-dev \
+    alsa-utils \
+    dos2unix
+
 
 # Ensure pi owns the app directory
 sudo chown -R pi:pi "$APP_DIR"
