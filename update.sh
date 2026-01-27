@@ -38,11 +38,9 @@ pip install flask
 # ------------------------------------------------------------
 # 4. Fix permissions (self‑healing)
 # ------------------------------------------------------------
-echo "[4/6] Fixing script permissions..."
-chmod +x "$APP_DIR/install.sh" || true
-chmod +x "$APP_DIR/update.sh" || true
-chmod +x "$APP_DIR/sync_cron.py" || true
-chmod +x "$APP_DIR/play_alarm.sh" || true
+echo "Fixing script permissions..."
+chmod +x "$APP_DIR/*.sh" || true
+
 
 chown -R pi:pi "$APP_DIR"
 
