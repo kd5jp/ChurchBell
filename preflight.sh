@@ -1,141 +1,85 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-RED="\e[31m"
-GREEN="\e[32m"
-YELLOW="\e[33m"
-RESET="\e[0m"
-
-PASS_COUNT=0
-FAIL_COUNT=0
-
-pass() {
-    echo -e "${GREEN}[PASS]${RESET} $1"
-    PASS_COUNT=$((PASS_COUNT+1))
-}
-
-fail() {
-    echo -e "${RED}[FAIL]${RESET} $1"
-    FAIL_COUNT=$((FAIL_COUNT+1))
-}
-
-warn() {
-    echo -e "${YELLOW}[WARN]${RESET} $1"
-}
+APP_DIR="/home/pi/ChurchBell"
 
 echo "=== ChurchBell Preflight Check ==="
-echo "Checking system readiness..."
+echo ""
 
-# ---------------------------------------------------------
-# 1. Check OS
-# ---------------------------------------------------------
-if grep -qi "raspbian\|debian" /etc/os-release; then
-    pass "OS is Debian/Raspberry Pi based"
-else
-    warn "OS is not Debian-based. Script may still work, but not guaranteed."
-fi
+PASS=true
 
-# ---------------------------------------------------------
-# 2. Check pi user
-# ---------------------------------------------------------
-if id pi &>/dev/null; then
-    pass "User 'pi' exists"
-else
-    fail "User 'pi' does NOT exist. Create it before installing."
-fi
+# ------------------------------------------------------------
+# Helper to print PASS/FAIL
+# ------------------------------------------------------------
+check() {
+    local label="$1"
+    local cmd="$2"
 
-# ---------------------------------------------------------
-# 3. Check pi group memberships
-# ---------------------------------------------------------
-REQUIRED_GROUPS=(audio video gpio input spi i2c dialout)
+    echo -n "Checking $label... "
 
-for grp in "${REQUIRED_GROUPS[@]}"; do
-    if id -nG pi | grep -qw "$grp"; then
-        pass "pi is in group: $grp"
+    if eval "$cmd" >/dev/null 2>&1; then
+        echo "OK"
     else
-        fail "pi is NOT in group: $grp"
+        echo "FAIL"
+        PASS=false
     fi
-done
+}
 
-# ---------------------------------------------------------
-# 4. Check Python version
-# ---------------------------------------------------------
-PY_VER=$(python3 -V 2>/dev/null || true)
-if [[ "$PY_VER" =~ 3\.[8-9]|3\.1[0-9] ]]; then
-    pass "Python version OK ($PY_VER)"
+# ------------------------------------------------------------
+# 1. Basic system checks
+# ------------------------------------------------------------
+check "Python3 installed" "command -v python3"
+check "pip installed" "command -v pip3"
+check "venv module available" "python3 -m venv --help"
+check "git installed" "command -v git"
+check "cron installed" "command -v cron"
+check "systemd available" "pidof systemd"
+check "sqlite3 installed" "command -v sqlite3"
+
+# ------------------------------------------------------------
+# 2. Audio checks
+# ------------------------------------------------------------
+check "ALSA utilities installed" "command -v aplay"
+check "Audio device present" "aplay -l"
+
+# ------------------------------------------------------------
+# 3. Network checks
+# ------------------------------------------------------------
+check "Network connectivity" "ping -c1 8.8.8.8"
+check "DNS resolution" "ping -c1 google.com"
+
+# ------------------------------------------------------------
+# 4. Directory checks
+# ------------------------------------------------------------
+echo -n "Checking write access to $APP_DIR... "
+if mkdir -p "$APP_DIR" 2>/dev/null; then
+    echo "OK"
 else
-    fail "Python 3.8+ required. Found: $PY_VER"
+    echo "FAIL"
+    PASS=false
 fi
 
-# ---------------------------------------------------------
-# 5. Check required packages
-# ---------------------------------------------------------
-REQUIRED_PKGS=(python3 python3-venv python3-pip sox alsa-utils git)
-
-for pkg in "${REQUIRED_PKGS[@]}"; do
-    if dpkg -s "$pkg" &>/dev/null; then
-        pass "Package installed: $pkg"
-    else
-        fail "Missing package: $pkg"
-    fi
-done
-
-# ---------------------------------------------------------
-# 6. Check directory ownership
-# ---------------------------------------------------------
-OWNER=$(stat -c "%U" "$APP_DIR")
-if [[ "$OWNER" == "pi" ]]; then
-    pass "App directory owned by pi"
+# ------------------------------------------------------------
+# 5. System time sanity
+# ------------------------------------------------------------
+echo -n "Checking system clock... "
+if date >/dev/null 2>&1; then
+    echo "OK"
 else
-    warn "App directory owned by $OWNER (expected pi)"
+    echo "FAIL"
+    PASS=false
 fi
 
-# ---------------------------------------------------------
-# 7. Check port availability
-# ---------------------------------------------------------
-if ! sudo lsof -i :80 &>/dev/null; then
-    pass "Port 80 is free"
-else
-    fail "Port 80 is in use"
-fi
-
-if ! sudo lsof -i :8080 &>/dev/null; then
-    pass "Port 8080 is free"
-else
-    fail "Port 8080 is in use"
-fi
-
-# ---------------------------------------------------------
-# 8. Check audio output
-# ---------------------------------------------------------
-if command -v speaker-test &>/dev/null; then
-    pass "Audio tools installed"
-else
-    fail "Audio tools missing (alsa-utils)"
-fi
-
-# ---------------------------------------------------------
-# 9. Check systemd availability
-# ---------------------------------------------------------
-if pidof systemd &>/dev/null; then
-    pass "systemd is running"
-else
-    fail "systemd not detected — services will not install"
-fi
-
-# ---------------------------------------------------------
+# ------------------------------------------------------------
 # Summary
-# ---------------------------------------------------------
-echo
+# ------------------------------------------------------------
+echo ""
 echo "=== Preflight Summary ==="
-echo -e "${GREEN}Passed: $PASS_COUNT${RESET}"
-echo -e "${RED}Failed: $FAIL_COUNT${RESET}"
 
-if [ "$FAIL_COUNT" -gt 0 ]; then
-    echo -e "${RED}System is NOT ready for install. Fix the failures above.${RESET}"
-    exit 1
+if [ "$PASS" = true ]; then
+    echo "All checks PASSED. System is ready for install."
+    exit 0
 else
-    echo -e "${GREEN}System is ready for install! Run ./install.sh next.${RESET}"
+    echo "One or more checks FAILED. Please fix issues before running install.sh."
+    exit 1
 fi
