@@ -38,16 +38,33 @@ pip install flask
 # ------------------------------------------------------------
 # 4. Fix permissions (self‑healing)
 # ------------------------------------------------------------
-echo "Fixing script permissions..."
-chmod +x "$APP_DIR/diagnostics.sh" || true
-chmod +x "$APP_DIR/install.sh" || true
-chmod +x "$APP_DIR/restore.sh" || true
-chmod +x "$APP_DIR/update.sh" || true
-chmod +x "$APP_DIR/backup.sh" || true
-chmod +x "$APP_DIR/factory_reset.sh" || true
-chmod +x "$APP_DIR/postinstall.sh" || true
-chmod +x "$APP_DIR/list_alarms.sh" || true
-chmod +x "$APP_DIR/uninstall.sh" || true
+echo "[INFO] Fixing script permissions..."
+
+# Default APP_DIR if not set
+APP_DIR="${APP_DIR:-/opt/church-bells}"
+
+# List of scripts to normalize
+SCRIPTS=(
+  diagnostics.sh
+  install.sh
+  restore.sh
+  update.sh
+  backup.sh
+  factory_reset.sh
+  postinstall.sh
+  list_alarms.sh
+  uninstall.sh
+)
+
+for script in "${SCRIPTS[@]}"; do
+  if [ -f "$APP_DIR/$script" ]; then
+    chmod +x "$APP_DIR/$script"
+    echo "[OK] $script marked executable"
+  else
+    echo "[WARN] $script not found in $APP_DIR"
+  fi
+done
+
 
 chown -R pi:pi "$APP_DIR"
 
