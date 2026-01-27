@@ -1,3 +1,4 @@
+
 import os
 import sqlite3
 import threading
@@ -367,9 +368,7 @@ def scheduler_loop():
 
         time.sleep(30)
 
-def start_scheduler():
-    t = threading.Thread(target=scheduler_loop, daemon=True)
-    t.start()
+
 
 # ---------- main ----------
 
@@ -377,5 +376,4 @@ if __name__ == "__main__":
     if not SOUNDS_DIR.exists():
         SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
     init_db()
-    start_scheduler()
     app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)
