@@ -39,8 +39,15 @@ pip install flask
 # 4. Fix permissions (self‑healing)
 # ------------------------------------------------------------
 echo "Fixing script permissions..."
-chmod +x "$APP_DIR/*.sh" || true
-
+chmod +x "$APP_DIR/diagnostics.sh" || true
+chmod +x "$APP_DIR/install.sh" || true
+chmod +x "$APP_DIR/restore.sh" || true
+chmod +x "$APP_DIR/update.sh" || true
+chmod +x "$APP_DIR/backup.sh" || true
+chmod +x "$APP_DIR/factory_reset.sh" || true
+chmod +x "$APP_DIR/postinstall.sh" || true
+chmod +x "$APP_DIR/list_alarms.sh" || true
+chmod +x "$APP_DIR/uninstall.sh" || true
 
 chown -R pi:pi "$APP_DIR"
 
