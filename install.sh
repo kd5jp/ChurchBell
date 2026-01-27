@@ -8,6 +8,11 @@ echo "Installing ChurchBellsSystem..."
 sudo apt-get update
 sudo apt-get install -y python3 python3-venv python3-pip alsa-utils sox
 
+if ! id "churchbell" &>/dev/null; then
+    sudo useradd -r -s /usr/sbin/nologin churchbell
+fi
+sudo chown -R churchbell:churchbell "$APP_DIR"
+
 cd "$APP_DIR"
 
 # Python venv
@@ -45,7 +50,7 @@ After=network.target
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/home.py
 Restart=always
-User=pi
+User=churchbell
 
 [Install]
 WantedBy=multi-user.target
@@ -60,7 +65,7 @@ After=network.target sound.target
 WorkingDirectory=$APP_DIR
 ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/app.py
 Restart=always
-User=pi
+User=churchbell
 
 [Install]
 WantedBy=multi-user.target
