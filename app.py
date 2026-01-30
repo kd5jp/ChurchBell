@@ -278,8 +278,11 @@ def update_alarm(alarm_id):
 @login_required
 def test_sound(filename):
     sound_path = f"sounds/{filename}"
-    play_sound(sound_path)
-    return ("", 204)
+    result = play_sound(sound_path)
+    if result:
+        return ("", 204)
+    else:
+        return ("Sound file not found or playback failed", 404)
 
 @app.route("/upload_sound", methods=["POST"])
 @login_required
@@ -333,18 +336,21 @@ def set_volume():
 # ---------- playback ----------
 
 def play_sound(sound_path):
+    """Play a sound file. Returns True if successful, False otherwise."""
     full_path = str((APP_DIR / sound_path).resolve())
     if not os.path.exists(full_path):
-        return
+        return False
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["aplay", full_path],
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=30,  # Prevent hanging if sound is very long
         )
-    except Exception:
-        pass
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return False
 
 
 # ---------- main ----------
