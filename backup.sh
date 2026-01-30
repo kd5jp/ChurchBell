@@ -1,8 +1,21 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Detect project directory: use git root if available, otherwise script directory
+# Still allows CHURCHBELL_APP_DIR override for flexibility
+if [ -z "${CHURCHBELL_APP_DIR:-}" ]; then
+    if command -v git >/dev/null 2>&1 && cd "$SCRIPT_DIR" && git rev-parse --show-toplevel >/dev/null 2>&1; then
+        INSTALL_DIR="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel)"
+    else
+        INSTALL_DIR="$SCRIPT_DIR"
+    fi
+else
+    INSTALL_DIR="$CHURCHBELL_APP_DIR"
+fi
+
 SERVICE_USER="${CHURCHBELL_SERVICE_USER:-churchbells}"
-INSTALL_DIR="${CHURCHBELL_APP_DIR:-/opt/church-bells}"
 BACKUP_DIR="${INSTALL_DIR}/backups"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/churchbells-backup-${TIMESTAMP}.zip"

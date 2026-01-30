@@ -57,7 +57,7 @@ updateClock();
         <button type="submit" class="btn btn-sm btn-success">Save</button>
         <a href="{{ url_for('toggle_alarm', alarm_id=alarm.id) }}" class="btn btn-sm btn-warning">Toggle</a>
         <a href="{{ url_for('delete_alarm', alarm_id=alarm.id) }}" class="btn btn-sm btn-danger">Delete</a>
-        <button type="button" onclick="testSound('{{ alarm.sound_path.split('/')[-1] }}', this)" class="btn btn-sm btn-secondary">Test</button>
+        <a href="{{ url_for('test_sound', filename=alarm.sound_path.split('/')[-1]) }}" class="btn btn-sm btn-secondary">Test</a>
       </form>
     </td>
   </tr>
@@ -124,7 +124,7 @@ updateClock();
         <tr>
           <td>{{ s }}</td>
           <td class="d-flex gap-2">
-            <button type="button" onclick="testSound('{{ s }}', this)" class="btn btn-sm btn-secondary">Test</button>
+            <a href="{{ url_for('test_sound', filename=s) }}" class="btn btn-sm btn-secondary">Test</a>
             <a href="{{ url_for('delete_sound', filename=s) }}" class="btn btn-sm btn-danger">Delete</a>
           </td>
         </tr>
@@ -163,60 +163,6 @@ document.getElementById("uploadForm").addEventListener("submit", async (e) => {
   const text = await response.text();
   alert(text);
 });
-
-async function testSound(filename, button) {
-  const originalText = button.textContent;
-  const originalDisabled = button.disabled;
-  
-  // Disable button and show loading state
-  button.disabled = true;
-  button.textContent = "Playing...";
-  button.classList.remove("btn-secondary");
-  button.classList.add("btn-info");
-  
-  try {
-    const response = await fetch("{{ url_for('test_sound', filename='') }}" + encodeURIComponent(filename));
-    
-    if (response.ok) {
-      // Success - show brief success state
-      button.classList.remove("btn-info");
-      button.classList.add("btn-success");
-      button.textContent = "Playing";
-      
-      // Reset after 2 seconds
-      setTimeout(() => {
-        button.textContent = originalText;
-        button.classList.remove("btn-success");
-        button.classList.add("btn-secondary");
-        button.disabled = originalDisabled;
-      }, 2000);
-    } else {
-      // Error - show error state
-      button.classList.remove("btn-info");
-      button.classList.add("btn-danger");
-      button.textContent = "Error";
-      
-      setTimeout(() => {
-        button.textContent = originalText;
-        button.classList.remove("btn-danger");
-        button.classList.add("btn-secondary");
-        button.disabled = originalDisabled;
-      }, 2000);
-    }
-  } catch (error) {
-    // Network or other error
-    button.classList.remove("btn-info");
-    button.classList.add("btn-danger");
-    button.textContent = "Error";
-    
-    setTimeout(() => {
-      button.textContent = originalText;
-      button.classList.remove("btn-danger");
-      button.classList.add("btn-secondary");
-      button.disabled = originalDisabled;
-    }, 2000);
-  }
-}
 </script>
 
 {% endblock %}

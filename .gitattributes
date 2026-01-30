@@ -1,0 +1,17 @@
+# Ensure shell scripts always use LF line endings (for Linux compatibility)
+*.sh text eol=lf
+
+# Python scripts should also use LF for cross-platform compatibility
+*.py text eol=lf
+
+# Text files use platform default
+*.txt text
+*.md text
+*.html text
+*.css text
+
+# Binary files
+*.db binary
+*.wav binary
+*.zip binary
+*.pyc binary

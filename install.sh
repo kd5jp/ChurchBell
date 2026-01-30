@@ -2,7 +2,18 @@
 set -euo pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="${CHURCHBELL_APP_DIR:-/opt/church-bells}"
+
+# Detect project directory: use git root if available, otherwise script directory
+# Still allows CHURCHBELL_APP_DIR override for flexibility
+if [ -z "${CHURCHBELL_APP_DIR:-}" ]; then
+    if command -v git >/dev/null 2>&1 && git rev-parse --show-toplevel >/dev/null 2>&1; then
+        APP_DIR="$(cd "$SOURCE_DIR" && git rev-parse --show-toplevel)"
+    else
+        APP_DIR="$SOURCE_DIR"
+    fi
+else
+    APP_DIR="$CHURCHBELL_APP_DIR"
+fi
 SERVICE_FILE="/etc/systemd/system/churchbell.service"
 HOME_SERVICE_FILE="/etc/systemd/system/churchbell-home.service"
 SERVICE_USER="${CHURCHBELL_SERVICE_USER:-churchbells}"
@@ -79,7 +90,7 @@ pip install flask
 # 7. Permissions for scripts
 # ------------------------------------------------------------
 echo "[6/8] Setting script permissions..."
-SCRIPTS=(install.sh update.sh sync_cron.py play_alarm.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
+SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
     chmod +x "$APP_DIR/$script"
@@ -142,6 +153,9 @@ sudo systemctl start cron
 
 echo "Syncing cron with current alarms..."
 python3 "$APP_DIR/sync_cron.py" || true
+
+echo "Updating play_alarm.sh with correct project path..."
+python3 "$APP_DIR/update_play_alarm_path.py" || true
 
 # ------------------------------------------------------------
 # Done
