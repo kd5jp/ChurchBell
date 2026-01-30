@@ -51,6 +51,9 @@ if ! id "$SERVICE_USER" &>/dev/null; then
   echo "[INFO] Created service user $SERVICE_USER"
 fi
 sudo usermod -aG audio,video,gpio,input,spi,i2c,dialout "$SERVICE_USER" || true
+# Add current user (pi) to service user's group so pi can access directories owned by churchbells
+CURRENT_USER="$(whoami)"
+sudo usermod -aG "$SERVICE_USER" "$CURRENT_USER" || true
 
 # ------------------------------------------------------------
 # 3. Sync application files
@@ -71,8 +74,10 @@ if [ -d "$APP_DIR/.git" ]; then
     sudo chown -R "$(whoami):$(whoami)" "$APP_DIR/.git"
 fi
 
-# Ensure directory is traversable by pi user (needed for cd command)
-sudo chmod 755 "$APP_DIR"
+# Make directory itself accessible to pi user: set group ownership and ensure group can traverse
+CURRENT_USER="$(whoami)"
+sudo chown "$CURRENT_USER":"$SERVICE_USER" "$APP_DIR"
+sudo chmod 775 "$APP_DIR"  # Owner and group can read/write/execute, others can read/execute
 
 # ------------------------------------------------------------
 # 4. Create application directories
