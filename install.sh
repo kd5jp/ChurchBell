@@ -14,6 +14,14 @@ if [ -z "${CHURCHBELL_APP_DIR:-}" ]; then
 else
     APP_DIR="$CHURCHBELL_APP_DIR"
 fi
+
+# Safety check: prevent running as root directly
+if [ "$EUID" -eq 0 ]; then
+    echo "ERROR: Do not run this script directly as root (sudo)."
+    echo "Run it as a regular user; it will prompt for sudo when needed."
+    exit 1
+fi
+
 SERVICE_FILE="/etc/systemd/system/churchbell.service"
 HOME_SERVICE_FILE="/etc/systemd/system/churchbell-home.service"
 SERVICE_USER="${CHURCHBELL_SERVICE_USER:-churchbells}"
@@ -56,6 +64,9 @@ sudo rsync -a \
     --exclude "backups" \
     "$SOURCE_DIR"/ "$APP_DIR"/
 
+# Set ownership immediately after rsync to prevent permission issues
+sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
+
 # ------------------------------------------------------------
 # 4. Create application directories
 # ------------------------------------------------------------
@@ -64,9 +75,6 @@ mkdir -p "$APP_DIR/sounds"
 mkdir -p "$APP_DIR/templates"
 mkdir -p "$APP_DIR/static"
 mkdir -p "$APP_DIR/backups"
-
-# Ensure ownership
-sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
 
 # ------------------------------------------------------------
 # 5. Python virtual environment
