@@ -66,15 +66,23 @@ sudo rsync -a \
 
 # Set ownership immediately after rsync to prevent permission issues
 sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
+# Ensure .git remains owned by pi user for git operations (needed for git pull)
+if [ -d "$APP_DIR/.git" ]; then
+    sudo chown -R "$(whoami):$(whoami)" "$APP_DIR/.git"
+fi
+
+# Ensure directory is traversable by pi user (needed for cd command)
+sudo chmod 755 "$APP_DIR"
 
 # ------------------------------------------------------------
 # 4. Create application directories
 # ------------------------------------------------------------
 echo "[3/8] Creating application directories..."
-mkdir -p "$APP_DIR/sounds"
-mkdir -p "$APP_DIR/templates"
-mkdir -p "$APP_DIR/static"
-mkdir -p "$APP_DIR/backups"
+sudo mkdir -p "$APP_DIR/sounds"
+sudo mkdir -p "$APP_DIR/templates"
+sudo mkdir -p "$APP_DIR/static"
+sudo mkdir -p "$APP_DIR/backups"
+sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR/sounds" "$APP_DIR/templates" "$APP_DIR/static" "$APP_DIR/backups"
 
 # ------------------------------------------------------------
 # 5. Python virtual environment
@@ -174,5 +182,8 @@ echo "Service is running on port 8080"
 echo "Visit: http://<your-pi-ip>:8080"
 echo ""
 
-# Final ownership sweep
+# Final ownership sweep (excluding .git so pi user can pull)
 sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
+if [ -d "$APP_DIR/.git" ]; then
+    sudo chown -R "$(whoami):$(whoami)" "$APP_DIR/.git"
+fi
