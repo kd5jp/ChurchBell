@@ -104,13 +104,32 @@ source venv/bin/activate
 # ------------------------------------------------------------
 echo "[6/12] Installing Python packages..."
 pip install --upgrade pip
-pip install flask
+pip install flask numpy
+
+# ------------------------------------------------------------
+# 6b. Generate default chime sounds
+# ------------------------------------------------------------
+echo "[6b/12] Generating default chime sounds..."
+cd "$APP_DIR" || {
+    echo "ERROR: Failed to cd to $APP_DIR"
+    exit 1
+}
+if [ -f "generate_bell_tones.py" ]; then
+    # Use venv python if available, otherwise system python3
+    if [ -f "venv/bin/python" ]; then
+        venv/bin/python generate_bell_tones.py || echo "[WARN] Failed to generate chime sounds"
+    else
+        python3 generate_bell_tones.py || echo "[WARN] Failed to generate chime sounds"
+    fi
+else
+    echo "[WARN] generate_bell_tones.py not found - skipping chime generation"
+fi
 
 # ------------------------------------------------------------
 # 7. Permissions for scripts
 # ------------------------------------------------------------
 echo "[7/12] Setting script permissions..."
-SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
+SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh generate_bell_tones.py)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
     chmod +x "$APP_DIR/$script"
