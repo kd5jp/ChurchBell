@@ -43,7 +43,7 @@ sudo apt install -y \
     python3 python3-pip python3-venv \
     git cron sqlite3 libsqlite3-dev \
     pipewire pipewire-alsa pipewire-pulse wireplumber \
-    dos2unix rsync openssl
+    dos2unix rsync openssl sox
 
 # ------------------------------------------------------------
 # 2. Ensure current user is in required groups
@@ -129,7 +129,7 @@ fi
 # 7. Permissions for scripts
 # ------------------------------------------------------------
 echo "[7/12] Setting script permissions..."
-SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh generate_bell_tones.py)
+SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh generate_bell_tones.py)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
     chmod +x "$APP_DIR/$script"
