@@ -116,9 +116,21 @@ id >> /tmp/install_debug.log 2>&1 || true
 if [ ! -d "venv" ]; then
     # #region agent log
     echo "DEBUG: About to create venv - PWD=$(pwd), USER=$(whoami)" >> /tmp/install_debug.log 2>&1
+    echo "DEBUG: Testing write access" >> /tmp/install_debug.log 2>&1
+    touch ./install_debug_test_write.txt 2>> /tmp/install_debug.log && rm -f ./install_debug_test_write.txt && echo "DEBUG: Can write to current dir" >> /tmp/install_debug.log 2>&1 || echo "DEBUG: Cannot write to current dir" >> /tmp/install_debug.log 2>&1
+    python3 -c "import os; print('DEBUG: Python cwd:', os.getcwd()); print('DEBUG: Python can write:', os.access('.', os.W_OK)); print('DEBUG: Python effective user:', os.geteuid() if hasattr(os, 'geteuid') else 'N/A')" >> /tmp/install_debug.log 2>&1
     # #endregion
-    python3 -m venv venv 2>> /tmp/install_debug.log || {
-        echo "ERROR: venv creation failed" >> /tmp/install_debug.log 2>&1
+    # #region agent log
+    echo "DEBUG: Running: python3 -m venv venv" >> /tmp/install_debug.log 2>&1
+    # #endregion
+    python3 -m venv venv >> /tmp/install_debug.log 2>&1 || {
+        EXIT_CODE=$?
+        # #region agent log
+        echo "ERROR: venv creation failed with exit code $EXIT_CODE" >> /tmp/install_debug.log 2>&1
+        echo "DEBUG: Checking if venv directory was partially created" >> /tmp/install_debug.log 2>&1
+        ls -la venv 2>> /tmp/install_debug.log || echo "DEBUG: venv directory does not exist" >> /tmp/install_debug.log 2>&1
+        python3 --version >> /tmp/install_debug.log 2>&1
+        # #endregion
         exit 1
     }
     echo "[OK] Created venv"
