@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Backup & Restore - ChurchBell System{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="mb-0">Backup & Restore</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Create backups of your alarms and sound files, or restore from a previous backup.</p>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-secondary">Back to Dashboard</a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="mb-0">Create New Backup</h5>
+  </div>
+  <div class="card-body">
+    <p>Create a backup that includes:</p>
+    <ul>
+      <li>All scheduled alarms</li>
+      <li>All sound files</li>
+    </ul>
+    <form method="POST" action="{{ url_for('create_backup') }}">
+      <button type="submit" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16" style="margin-right: 5px;">
+          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+          <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+        </svg>
+        Create Backup
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="mb-0">Restore from Backup</h5>
+  </div>
+  <div class="card-body">
+    <div class="alert alert-warning">
+      <strong>Warning:</strong> Restoring a backup will replace all current alarms and sound files. The service will be temporarily stopped during restoration.
+    </div>
+    <form method="POST" action="{{ url_for('restore_backup') }}" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label for="backup_file" class="form-label">Select Backup File (.zip)</label>
+        <input type="file" class="form-control" id="backup_file" name="backup_file" accept=".zip" required>
+      </div>
+      <button type="submit" class="btn btn-warning" onclick="return confirm('Are you sure you want to restore this backup? This will replace all current alarms and sound files.');">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-upload" viewBox="0 0 16 16" style="margin-right: 5px;">
+          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+          <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+        </svg>
+        Restore Backup
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Existing Backups</h5>
+  </div>
+  <div class="card-body">
+    {% if backups %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Size</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for backup in backups %}
+          <tr>
+            <td><code>{{ backup.filename }}</code></td>
+            <td>{{ "%.2f"|format(backup.size / 1024 / 1024) }} MB</td>
+            <td>{{ backup.created }}</td>
+            <td>
+              <a href="{{ url_for('download_backup', filename=backup.filename) }}" 
+                 class="btn btn-sm btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16" style="margin-right: 3px;">
+                  <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                  <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                </svg>
+                Download
+              </a>
+              <a href="{{ url_for('delete_backup', filename=backup.filename) }}" 
+                 class="btn btn-sm btn-danger"
+                 onclick="return confirm('Delete backup {{ backup.filename }}?');">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16" style="margin-right: 3px;">
+                  <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                  <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+                Delete
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No backups found. Create your first backup above.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

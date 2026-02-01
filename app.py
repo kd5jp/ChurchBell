@@ -2,12 +2,17 @@ import os
 import sqlite3
 import subprocess
 import pwd
+import zipfile
+import json
+import shutil
+from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, session, flash, g
+from flask import Flask, render_template, request, redirect, url_for, session, flash, g, send_file
 
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = APP_DIR / "bells.db"
 SOUNDS_DIR = APP_DIR / "sounds"
+BACKUP_DIR = APP_DIR / "backups"
 
 DEFAULT_USERNAME = os.getenv("CHURCHBELL_ADMIN_USER", "admin")
 DEFAULT_PASSWORD = os.getenv("CHURCHBELL_ADMIN_PASS", "changeme")  # stored as plain text for now, appliance-style
@@ -512,11 +517,226 @@ def play_sound(sound_path):
         return {"error": True, "message": error_msg, "command": " ".join(cmd)}
 
 
+# ---------- backup and restore ----------
+
+@app.route("/backup")
+@login_required
+def backup_page():
+    """Display backup and restore page"""
+    # Ensure backup directory exists
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # List existing backups
+    backups = []
+    if BACKUP_DIR.exists():
+        for backup_file in sorted(BACKUP_DIR.glob("churchbells-backup-*.zip"), reverse=True):
+            try:
+                stat = backup_file.stat()
+                backups.append({
+                    "filename": backup_file.name,
+                    "size": stat.st_size,
+                    "created": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                })
+            except Exception:
+                pass
+    
+    return render_template("backup.html", backups=backups)
+
+
+@app.route("/create_backup", methods=["POST"])
+@login_required
+def create_backup():
+    """Create a new backup including database alarms and sound files"""
+    try:
+        # Ensure backup directory exists
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # Generate timestamp
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_file = BACKUP_DIR / f"churchbells-backup-{timestamp}.zip"
+        
+        # Export alarms from database to JSON
+        db = get_db()
+        alarms = db.execute(
+            "SELECT id, day_of_week, time_str, sound_path, enabled, last_run_date FROM alarms"
+        ).fetchall()
+        
+        alarms_data = [dict(row) for row in alarms]
+        alarms_json = json.dumps(alarms_data, indent=2)
+        
+        # Create ZIP archive
+        with zipfile.ZipFile(backup_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add alarms JSON
+            zipf.writestr("alarms.json", alarms_json)
+            
+            # Add all sound files
+            if SOUNDS_DIR.exists():
+                for sound_file in SOUNDS_DIR.rglob("*"):
+                    if sound_file.is_file():
+                        arcname = sound_file.relative_to(SOUNDS_DIR.parent)
+                        zipf.write(sound_file, arcname)
+        
+        flash(f"Backup created successfully: {backup_file.name}", "success")
+    except Exception as e:
+        flash(f"Error creating backup: {str(e)}", "error")
+    
+    return redirect(url_for("backup_page"))
+
+
+@app.route("/download_backup/<filename>")
+@login_required
+def download_backup(filename):
+    """Download a backup file"""
+    backup_file = BACKUP_DIR / filename
+    
+    # Security check: ensure file is in backup directory
+    if not backup_file.exists() or not str(backup_file).startswith(str(BACKUP_DIR)):
+        flash("Backup file not found", "error")
+        return redirect(url_for("backup_page"))
+    
+    return send_file(
+        backup_file,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/zip"
+    )
+
+
+@app.route("/delete_backup/<filename>")
+@login_required
+def delete_backup(filename):
+    """Delete a backup file"""
+    backup_file = BACKUP_DIR / filename
+    
+    # Security check: ensure file is in backup directory
+    if not backup_file.exists() or not str(backup_file).startswith(str(BACKUP_DIR)):
+        flash("Backup file not found", "error")
+        return redirect(url_for("backup_page"))
+    
+    try:
+        backup_file.unlink()
+        flash(f"Backup '{filename}' deleted", "success")
+    except Exception as e:
+        flash(f"Error deleting backup: {str(e)}", "error")
+    
+    return redirect(url_for("backup_page"))
+
+
+@app.route("/restore_backup", methods=["POST"])
+@login_required
+def restore_backup():
+    """Upload and restore a backup file"""
+    if "backup_file" not in request.files:
+        flash("No backup file provided", "error")
+        return redirect(url_for("backup_page"))
+    
+    file = request.files["backup_file"]
+    if file.filename == "":
+        flash("No backup file selected", "error")
+        return redirect(url_for("backup_page"))
+    
+    if not file.filename.lower().endswith(".zip"):
+        flash("Backup file must be a ZIP file", "error")
+        return redirect(url_for("backup_page"))
+    
+    try:
+        # Save uploaded file temporarily
+        temp_backup = BACKUP_DIR / f"temp-restore-{datetime.now().strftime('%Y%m%d-%H%M%S')}.zip"
+        file.save(temp_backup)
+        
+        # Stop the service before restore
+        try:
+            subprocess.run(
+                ["sudo", "systemctl", "stop", "churchbell.service"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass
+        
+        # Extract backup
+        with zipfile.ZipFile(temp_backup, 'r') as zipf:
+            # Extract alarms.json
+            if "alarms.json" in zipf.namelist():
+                zipf.extract("alarms.json", APP_DIR)
+                
+                # Restore alarms to database
+                alarms_json_path = APP_DIR / "alarms.json"
+                with open(alarms_json_path, 'r') as f:
+                    alarms_data = json.load(f)
+                
+                db = get_db()
+                # Clear existing alarms
+                db.execute("DELETE FROM alarms")
+                db.commit()
+                
+                # Insert restored alarms (without IDs to let SQLite auto-increment)
+                for alarm in alarms_data:
+                    db.execute(
+                        """
+                        INSERT INTO alarms (day_of_week, time_str, sound_path, enabled, last_run_date)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            alarm.get("day_of_week"),
+                            alarm.get("time_str"),
+                            alarm.get("sound_path"),
+                            alarm.get("enabled", 1),
+                            alarm.get("last_run_date")
+                        )
+                    )
+                db.commit()
+                
+                # Clean up temporary JSON file
+                alarms_json_path.unlink()
+            
+            # Extract sound files
+            for member in zipf.namelist():
+                if member.startswith("sounds/"):
+                    zipf.extract(member, APP_DIR)
+        
+        # Clean up temp backup file
+        temp_backup.unlink()
+        
+        # Sync cron with restored alarms
+        sync_cron()
+        
+        # Restart the service
+        try:
+            subprocess.run(
+                ["sudo", "systemctl", "start", "churchbell.service"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass
+        
+        flash("Backup restored successfully. Service restarted.", "success")
+    except Exception as e:
+        flash(f"Error restoring backup: {str(e)}", "error")
+        # Try to restart service even on error
+        try:
+            subprocess.run(
+                ["sudo", "systemctl", "start", "churchbell.service"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass
+    
+    return redirect(url_for("backup_page"))
+
+
 # ---------- main ----------
 
 if __name__ == "__main__":
     if not SOUNDS_DIR.exists():
         SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
+    if not BACKUP_DIR.exists():
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     try:
         init_db()
     except Exception as e:
