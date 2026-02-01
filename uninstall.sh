@@ -17,8 +17,14 @@ fi
 SERVICE_NAME="churchbell.service"
 HOME_SERVICE_NAME="churchbell-home.service"
 
-echo "This will remove the virtual environment, database, and systemd services."
-echo "Your code and sound files will remain untouched."
+echo "=== ChurchBell Uninstaller ==="
+echo "This will remove:"
+echo "  - Virtual environment (venv/)"
+echo "  - Database (bells.db)"
+echo "  - Systemd services (churchbell.service, churchbell-home.service)"
+echo ""
+echo "Your code, sound files, and backups will remain untouched."
+echo "Note: Services run as current user (no separate service user to remove)."
 read -p "Continue? [y/N] " ans
 
 if [[ "$ans" != "y" && "$ans" != "Y" ]]; then
@@ -43,7 +49,22 @@ sudo systemctl daemon-reload
 sudo systemctl reset-failed 2>/dev/null || true
 
 echo "Removing virtual environment and database..."
-rm -rf "$APP_DIR/venv"
-rm -f "$APP_DIR/bells.db"
+if [ -d "$APP_DIR/venv" ]; then
+    rm -rf "$APP_DIR/venv"
+    echo "  ✓ Removed venv/"
+fi
+if [ -f "$APP_DIR/bells.db" ]; then
+    rm -f "$APP_DIR/bells.db"
+    echo "  ✓ Removed bells.db"
+fi
 
-echo "Uninstall complete."
+# Clean up cron jobs (if any)
+echo "Cleaning up cron jobs..."
+crontab -l 2>/dev/null | grep -v "ChurchBell" | crontab - 2>/dev/null || true
+echo "  ✓ Removed cron jobs"
+
+echo ""
+echo "=== Uninstall complete ==="
+echo "Services stopped and removed."
+echo "Virtual environment and database deleted."
+echo "Code and sound files remain in: $APP_DIR"
