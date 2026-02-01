@@ -1,6 +1,7 @@
 #!/bin/bash
 # Scheduled alarm sound player
 # Extracts filename from any path and plays from /home/pi/ChurchBell/sounds/
+# NOTE: Uses pw-play (PipeWire). aplay (ALSA) is NOT supported in future Pi3 builds.
 
 SOUNDS_DIR="/home/pi/ChurchBell/sounds"
 SOUND_PATH="$1"
@@ -20,4 +21,4 @@ if [ ! -f "$FULL_PATH" ]; then
 fi
 
 # Play the sound file
-/usr/bin/aplay "$FULL_PATH" >/dev/null 2>&1
+pw-play "$FULL_PATH" >/dev/null 2>&1

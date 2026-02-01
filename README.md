@@ -11,7 +11,7 @@ This project provides a reliable, easy‑to‑use system for scheduling and play
 - Login system (default: **admin / changeme**)
 - Add, edit, enable/disable, and delete alarms
 - Alarms sorted by day of week and time
-- Plays WAV files using `aplay`
+- Plays WAV files using `pw-play`
 - Persistent system volume slider pinned to the bottom-left of the UI
 - Built‑in default chime sound generated during installation
 - Automatic scheduler loop that fires alarms at the correct time
@@ -37,6 +37,12 @@ This project provides a reliable, easy‑to‑use system for scheduling and play
 - Python 3.9+
 - Audio output configured (HDMI or 3.5mm)
 - Internet connection for first install
+
+---
+
+## Important Notes
+
+⚠️ **Audio Playback**: This system uses `pw-play` (PipeWire) for audio playback. The `aplay` command (ALSA) is **not supported** in future builds for Pi3 software and should not be used.
 
 ---
 

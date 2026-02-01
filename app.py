@@ -331,6 +331,7 @@ def set_volume():
 
 
 # ---------- playback ----------
+# NOTE: Uses pw-play (PipeWire). aplay (ALSA) is NOT supported in future Pi3 builds.
 
 def play_sound(sound_path):
     full_path = str((APP_DIR / sound_path).resolve())
@@ -338,7 +339,7 @@ def play_sound(sound_path):
         return
     try:
         subprocess.run(
-            ["aplay", full_path],
+            ["pw-play", full_path],
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
