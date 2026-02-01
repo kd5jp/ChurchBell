@@ -12,9 +12,15 @@
       <div class="col-md-6 mb-3">
         <h6>Quick Links</h6>
         <div class="d-flex flex-wrap gap-2 mb-2">
+          {% if has_permission(session.user_id, 'bells') %}
           <a href="{{ url_for('alarms') }}" class="btn btn-primary">Bell Scheduler</a>
+          {% endif %}
+          {% if has_permission(session.user_id, 'backup') %}
           <a href="{{ url_for('backup_page') }}" class="btn btn-info">Backup & Restore</a>
+          {% endif %}
+          {% if has_permission(session.user_id, 'users') %}
           <a href="{{ url_for('users') }}" class="btn btn-secondary">User Management</a>
+          {% endif %}
         </div>
       </div>
       <div class="col-md-6">

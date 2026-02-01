@@ -46,9 +46,15 @@
       <a class="navbar-brand" href="{{ url_for('dashboard') }}">ChurchBell System</a>
       <div class="navbar-nav ms-auto">
         <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+        {% if has_permission(session.user_id, 'bells') %}
         <a class="nav-link" href="{{ url_for('alarms') }}">Bell Scheduler</a>
+        {% endif %}
+        {% if has_permission(session.user_id, 'backup') %}
         <a class="nav-link" href="{{ url_for('backup_page') }}">Backup & Restore</a>
+        {% endif %}
+        {% if has_permission(session.user_id, 'users') %}
         <a class="nav-link" href="{{ url_for('users') }}">User Management</a>
+        {% endif %}
         <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
       </div>
     </div>

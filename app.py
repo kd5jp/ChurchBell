@@ -22,6 +22,15 @@ app.secret_key = "change-this-secret-key"  # replace in production
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = True  # HTTPS required
 
+# Make helper functions available to templates
+@app.context_processor
+def inject_permissions():
+    return dict(
+        is_admin=lambda uid: is_admin(uid) if uid else False,
+        has_permission=lambda uid, perm: has_permission(uid, perm) if uid else False,
+        get_user_permissions=lambda uid: get_user_permissions(uid) if uid else []
+    )
+
 
 # ---------- CRON SYNC HELPER ----------
 
@@ -66,9 +75,29 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # user_permissions table - stores permissions for non-admin users
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            permission TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, permission)
+        )
+    """)
+    
+    # Available permissions
+    # 'bells' - access to bell scheduler/alarms
+    # 'backup' - access to backup and restore
+    # 'users' - access to user management
+    # 'tts' - access to text-to-speech (future)
+    # 'announcements' - access to live announcements (future)
 
     # alarms table
     cur.execute("""
@@ -94,9 +123,12 @@ def init_db():
     cur.execute("SELECT COUNT(*) AS c FROM users")
     if cur.fetchone()["c"] == 0:
         cur.execute(
-            "INSERT INTO users (username, password) VALUES (?, ?)",
-            (DEFAULT_USERNAME, DEFAULT_PASSWORD),
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (DEFAULT_USERNAME, DEFAULT_PASSWORD, "admin"),
         )
+    
+    # Migrate existing users to have 'user' role if they don't have one
+    cur.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''")
 
     # default settings row
     cur.execute("SELECT COUNT(*) AS c FROM settings WHERE id = 1")
@@ -117,6 +149,56 @@ def login_required(view):
             return redirect(url_for("login"))
         return view(*args, **kwargs)
     return wrapped
+
+def get_user_role(user_id):
+    """Get the role of a user"""
+    db = get_db()
+    user = db.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+    return user["role"] if user else None
+
+def is_admin(user_id):
+    """Check if user is an admin"""
+    return get_user_role(user_id) == "admin"
+
+def has_permission(user_id, permission):
+    """Check if user has a specific permission. Admins have all permissions."""
+    if is_admin(user_id):
+        return True
+    
+    db = get_db()
+    perm = db.execute(
+        "SELECT 1 FROM user_permissions WHERE user_id = ? AND permission = ?",
+        (user_id, permission)
+    ).fetchone()
+    return perm is not None
+
+def get_user_permissions(user_id):
+    """Get all permissions for a user. Returns list of permission strings."""
+    if is_admin(user_id):
+        # Admins have all permissions
+        return ["bells", "backup", "users", "tts", "announcements"]
+    
+    db = get_db()
+    perms = db.execute(
+        "SELECT permission FROM user_permissions WHERE user_id = ?",
+        (user_id,)
+    ).fetchall()
+    return [p["permission"] for p in perms]
+
+def permission_required(permission):
+    """Decorator to require a specific permission"""
+    from functools import wraps
+    def decorator(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            if "user_id" not in session:
+                return redirect(url_for("login"))
+            if not has_permission(session["user_id"], permission):
+                flash("You do not have permission to access this page.", "error")
+                return redirect(url_for("dashboard"))
+            return view(*args, **kwargs)
+        return wrapped
+    return decorator
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -197,16 +279,45 @@ def dashboard():
 
 @app.route("/users")
 @login_required
+@permission_required("users")
 def users():
     db = get_db()
-    users_list = db.execute("SELECT id, username FROM users ORDER BY id").fetchall()
-    return render_template("users.html", users=users_list)
+    users_list = db.execute(
+        "SELECT id, username, role FROM users ORDER BY id"
+    ).fetchall()
+    
+    # Get permissions for each user
+    users_with_perms = []
+    for user in users_list:
+        perms = get_user_permissions(user["id"])
+        users_with_perms.append({
+            "id": user["id"],
+            "username": user["username"],
+            "role": user["role"],
+            "permissions": perms
+        })
+    
+    # Available permissions list
+    available_permissions = ["bells", "backup", "users", "tts", "announcements"]
+    
+    return render_template(
+        "users.html",
+        users=users_with_perms,
+        available_permissions=available_permissions
+    )
 
 @app.route("/add_user", methods=["POST"])
 @login_required
+@permission_required("users")
 def add_user():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
+    role = request.form.get("role", "user").strip()
+    
+    # Only admins can create other admins
+    if role == "admin" and not is_admin(session["user_id"]):
+        flash("Only administrators can create admin users.", "error")
+        return redirect(url_for("users"))
     
     if not username or not password:
         flash("Username and password are required.", "error")
@@ -214,10 +325,23 @@ def add_user():
     
     db = get_db()
     try:
-        db.execute(
-            "INSERT INTO users (username, password) VALUES (?, ?)",
-            (username, password),
+        # Insert user
+        cur = db.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (username, password, role),
         )
+        user_id = cur.lastrowid
+        
+        # Add permissions if not admin
+        if role != "admin":
+            permissions = request.form.getlist("permissions")
+            for perm in permissions:
+                if perm in ["bells", "backup", "users", "tts", "announcements"]:
+                    db.execute(
+                        "INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)",
+                        (user_id, perm)
+                    )
+        
         db.commit()
         flash(f"User '{username}' added successfully.", "success")
     except sqlite3.IntegrityError:
@@ -227,6 +351,7 @@ def add_user():
 
 @app.route("/delete_user/<int:user_id>")
 @login_required
+@permission_required("users")
 def delete_user(user_id):
     # Prevent deleting yourself
     if user_id == session["user_id"]:
@@ -234,12 +359,82 @@ def delete_user(user_id):
         return redirect(url_for("users"))
     
     db = get_db()
-    user = db.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    user = db.execute("SELECT username, role FROM users WHERE id = ?", (user_id,)).fetchone()
     if user:
+        # Prevent non-admins from deleting admins
+        if user["role"] == "admin" and not is_admin(session["user_id"]):
+            flash("Only administrators can delete admin users.", "error")
+            return redirect(url_for("users"))
+        
         db.execute("DELETE FROM users WHERE id = ?", (user_id,))
         db.commit()
         flash(f"User '{user['username']}' deleted.", "success")
     
+    return redirect(url_for("users"))
+
+@app.route("/update_user_permissions/<int:user_id>", methods=["POST"])
+@login_required
+@permission_required("users")
+def update_user_permissions(user_id):
+    """Update permissions for a user"""
+    db = get_db()
+    user = db.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+    
+    if not user:
+        flash("User not found.", "error")
+        return redirect(url_for("users"))
+    
+    # Can't change admin permissions
+    if user["role"] == "admin":
+        flash("Admin users have all permissions and cannot be modified.", "error")
+        return redirect(url_for("users"))
+    
+    # Get selected permissions
+    permissions = request.form.getlist("permissions")
+    
+    # Remove all existing permissions
+    db.execute("DELETE FROM user_permissions WHERE user_id = ?", (user_id,))
+    
+    # Add new permissions
+    for perm in permissions:
+        if perm in ["bells", "backup", "users", "tts", "announcements"]:
+            db.execute(
+                "INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)",
+                (user_id, perm)
+            )
+    
+    db.commit()
+    flash("User permissions updated successfully.", "success")
+    return redirect(url_for("users"))
+
+@app.route("/update_user_role/<int:user_id>", methods=["POST"])
+@login_required
+@permission_required("users")
+def update_user_role(user_id):
+    """Update role for a user (admin only)"""
+    if not is_admin(session["user_id"]):
+        flash("Only administrators can change user roles.", "error")
+        return redirect(url_for("users"))
+    
+    new_role = request.form.get("role", "user").strip()
+    if new_role not in ["admin", "user"]:
+        flash("Invalid role specified.", "error")
+        return redirect(url_for("users"))
+    
+    # Prevent changing your own role
+    if user_id == session["user_id"]:
+        flash("You cannot change your own role.", "error")
+        return redirect(url_for("users"))
+    
+    db = get_db()
+    db.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, user_id))
+    
+    # If changing to admin, remove all permissions (admins don't need them)
+    if new_role == "admin":
+        db.execute("DELETE FROM user_permissions WHERE user_id = ?", (user_id,))
+    
+    db.commit()
+    flash("User role updated successfully.", "success")
     return redirect(url_for("users"))
 
 
@@ -247,6 +442,7 @@ def delete_user(user_id):
 
 @app.route("/alarms")
 @login_required
+@permission_required("bells")
 def alarms():
     db = get_db()
     alarms = db.execute(
@@ -292,6 +488,7 @@ def alarms():
 
 @app.route("/add_alarm", methods=["POST"])
 @login_required
+@permission_required("bells")
 def add_alarm():
     day = int(request.form.get("day_of_week"))
     time_str = request.form.get("time_str", "").strip()
@@ -311,6 +508,7 @@ def add_alarm():
 
 @app.route("/toggle_alarm/<int:alarm_id>")
 @login_required
+@permission_required("bells")
 def toggle_alarm(alarm_id):
     db = get_db()
     row = db.execute(
@@ -332,6 +530,7 @@ def toggle_alarm(alarm_id):
 
 @app.route("/delete_alarm/<int:alarm_id>")
 @login_required
+@permission_required("bells")
 def delete_alarm(alarm_id):
     db = get_db()
     db.execute("DELETE FROM alarms WHERE id = ?", (alarm_id,))
@@ -342,6 +541,7 @@ def delete_alarm(alarm_id):
 
 @app.route("/edit_alarm/<int:alarm_id>")
 @login_required
+@permission_required("bells")
 def edit_alarm(alarm_id):
     """Delete alarm and redirect to form with pre-filled values"""
     db = get_db()
@@ -369,6 +569,7 @@ def edit_alarm(alarm_id):
 
 @app.route("/update_alarm/<int:alarm_id>", methods=["POST"])
 @login_required
+@permission_required("bells")
 def update_alarm(alarm_id):
     day = int(request.form["day"])
     time_str = request.form["time"]
@@ -394,6 +595,7 @@ def update_alarm(alarm_id):
 
 @app.route("/test_sound/<path:filename>")
 @login_required
+@permission_required("bells")
 def test_sound(filename):
     sound_path = f"sounds/{filename}"
     result = play_sound(sound_path)
@@ -404,6 +606,7 @@ def test_sound(filename):
 
 @app.route("/upload_sound", methods=["POST"])
 @login_required
+@permission_required("bells")
 def upload_sound():
     file = request.files.get("file")
     if file and file.filename.lower().endswith(".wav"):
@@ -415,6 +618,7 @@ def upload_sound():
 
 @app.route("/delete_sound/<path:filename>")
 @login_required
+@permission_required("bells")
 def delete_sound(filename):
     path = SOUNDS_DIR / filename
     if path.exists():
@@ -426,6 +630,7 @@ def delete_sound(filename):
 
 @app.route("/set_volume", methods=["POST"])
 @login_required
+@permission_required("bells")
 def set_volume():
     try:
         vol = int(request.form.get("volume", "70"))
@@ -521,6 +726,7 @@ def play_sound(sound_path):
 
 @app.route("/backup")
 @login_required
+@permission_required("backup")
 def backup_page():
     """Display backup and restore page"""
     # Ensure backup directory exists
@@ -545,6 +751,7 @@ def backup_page():
 
 @app.route("/create_backup", methods=["POST"])
 @login_required
+@permission_required("backup")
 def create_backup():
     """Create a new backup including database alarms and sound files"""
     try:
@@ -585,6 +792,7 @@ def create_backup():
 
 @app.route("/download_backup/<filename>")
 @login_required
+@permission_required("backup")
 def download_backup(filename):
     """Download a backup file"""
     backup_file = BACKUP_DIR / filename
@@ -624,6 +832,7 @@ def delete_backup(filename):
 
 @app.route("/restore_backup", methods=["POST"])
 @login_required
+@permission_required("backup")
 def restore_backup():
     """Upload and restore a backup file"""
     if "backup_file" not in request.files:

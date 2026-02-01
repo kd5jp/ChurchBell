@@ -3,7 +3,7 @@
 {% block title %}User Management - ChurchBell System{% endblock %}
 
 {% block content %}
-<div class="card">
+<div class="card mb-3">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">User Management</h5>
     <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-secondary">Back to Dashboard</a>
@@ -15,6 +15,8 @@
           <tr>
             <th>ID</th>
             <th>Username</th>
+            <th>Role</th>
+            <th>Permissions</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -22,13 +24,150 @@
           {% for user in users %}
           <tr>
             <td>{{ user.id }}</td>
-            <td>{{ user.username }}</td>
+            <td><strong>{{ user.username }}</strong></td>
             <td>
-              <a href="{{ url_for('delete_user', user_id=user.id) }}" 
-                 class="btn btn-sm btn-danger"
-                 onclick="return confirm('Delete user {{ user.username }}?')">Delete</a>
+              {% if user.role == "admin" %}
+                <span class="badge bg-danger">Administrator</span>
+              {% else %}
+                <span class="badge bg-secondary">User</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if user.role == "admin" %}
+                <span class="text-muted">All Permissions</span>
+              {% else %}
+                {% if user.permissions %}
+                  {% for perm in user.permissions %}
+                    <span class="badge bg-info">{{ perm }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span class="text-muted">No permissions</span>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td>
+              {% if user.role == "admin" and session.user_id != user.id %}
+                <button type="button" class="btn btn-sm btn-warning" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#roleModal{{ user.id }}">
+                  Change Role
+                </button>
+              {% elif user.role == "user" %}
+                <button type="button" class="btn btn-sm btn-primary" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#permissionModal{{ user.id }}">
+                  Edit Permissions
+                </button>
+                {% if is_admin(session.user_id) %}
+                  <button type="button" class="btn btn-sm btn-warning" 
+                          data-bs-toggle="modal" 
+                          data-bs-target="#roleModal{{ user.id }}">
+                    Change Role
+                  </button>
+                {% endif %}
+              {% endif %}
+              {% if session.user_id != user.id %}
+                <a href="{{ url_for('delete_user', user_id=user.id) }}" 
+                   class="btn btn-sm btn-danger"
+                   onclick="return confirm('Delete user {{ user.username }}?')">Delete</a>
+              {% endif %}
             </td>
           </tr>
+          
+          <!-- Permission Edit Modal for User -->
+          {% if user.role == "user" %}
+          <div class="modal fade" id="permissionModal{{ user.id }}" tabindex="-1">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Edit Permissions for {{ user.username }}</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('update_user_permissions', user_id=user.id) }}">
+                  <div class="modal-body">
+                    <p class="text-muted">Select the permissions for this user:</p>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="permissions" value="bells" id="perm_bells_{{ user.id }}"
+                             {% if "bells" in user.permissions %}checked{% endif %}>
+                      <label class="form-check-label" for="perm_bells_{{ user.id }}">
+                        <strong>Bell Scheduler</strong> - Manage alarms and schedules
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="permissions" value="backup" id="perm_backup_{{ user.id }}"
+                             {% if "backup" in user.permissions %}checked{% endif %}>
+                      <label class="form-check-label" for="perm_backup_{{ user.id }}">
+                        <strong>Backup & Restore</strong> - Create and restore backups
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="permissions" value="users" id="perm_users_{{ user.id }}"
+                             {% if "users" in user.permissions %}checked{% endif %}>
+                      <label class="form-check-label" for="perm_users_{{ user.id }}">
+                        <strong>User Management</strong> - Manage users and permissions
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="permissions" value="tts" id="perm_tts_{{ user.id }}"
+                             {% if "tts" in user.permissions %}checked{% endif %}>
+                      <label class="form-check-label" for="perm_tts_{{ user.id }}">
+                        <strong>Text-to-Speech</strong> - Create TTS announcements (Future)
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="permissions" value="announcements" id="perm_announcements_{{ user.id }}"
+                             {% if "announcements" in user.permissions %}checked{% endif %}>
+                      <label class="form-check-label" for="perm_announcements_{{ user.id }}">
+                        <strong>Live Announcements</strong> - Record announcements from phone (Future)
+                      </label>
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Permissions</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+          
+          <!-- Role Change Modal -->
+          {% if is_admin(session.user_id) and session.user_id != user.id %}
+          <div class="modal fade" id="roleModal{{ user.id }}" tabindex="-1">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Change Role for {{ user.username }}</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('update_user_role', user_id=user.id) }}">
+                  <div class="modal-body">
+                    <p class="text-muted">Select the role for this user:</p>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="role" value="admin" id="role_admin_{{ user.id }}"
+                             {% if user.role == "admin" %}checked{% endif %}>
+                      <label class="form-check-label" for="role_admin_{{ user.id }}">
+                        <strong>Administrator</strong> - Full system access
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="role" value="user" id="role_user_{{ user.id }}"
+                             {% if user.role == "user" %}checked{% endif %}>
+                      <label class="form-check-label" for="role_user_{{ user.id }}">
+                        <strong>User</strong> - Custom permissions (configure separately)
+                      </label>
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Change Role</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
@@ -42,24 +181,64 @@
   </div>
   <div class="card-body">
     <form method="post" action="{{ url_for('add_user') }}">
-      <div class="row">
-        <div class="col-md-4 mb-3">
+      <div class="row mb-3">
+        <div class="col-md-4">
           <label class="form-label">Username</label>
           <input type="text" name="username" class="form-control" required>
         </div>
-        <div class="col-md-4 mb-3">
+        <div class="col-md-4">
           <label class="form-label">Password</label>
           <input type="password" name="password" class="form-control" required>
         </div>
-        <div class="col-md-4 mb-3 d-flex align-items-end">
-          <button type="submit" class="btn btn-primary">Add User</button>
+        <div class="col-md-4">
+          <label class="form-label">Role</label>
+          <select name="role" class="form-select" required>
+            <option value="user" selected>User</option>
+            {% if is_admin(session.user_id) %}
+            <option value="admin">Administrator</option>
+            {% endif %}
+          </select>
         </div>
       </div>
+      <div class="mb-3">
+        <label class="form-label">Permissions (for User role only)</label>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="permissions" value="bells" id="new_perm_bells" checked>
+          <label class="form-check-label" for="new_perm_bells">
+            Bell Scheduler - Manage alarms and schedules
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="permissions" value="backup" id="new_perm_backup">
+          <label class="form-check-label" for="new_perm_backup">
+            Backup & Restore - Create and restore backups
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="permissions" value="users" id="new_perm_users">
+          <label class="form-check-label" for="new_perm_users">
+            User Management - Manage users and permissions
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="permissions" value="tts" id="new_perm_tts">
+          <label class="form-check-label" for="new_perm_tts">
+            Text-to-Speech - Create TTS announcements (Future)
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="permissions" value="announcements" id="new_perm_announcements">
+          <label class="form-check-label" for="new_perm_announcements">
+            Live Announcements - Record announcements from phone (Future)
+          </label>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Add User</button>
     </form>
   </div>
 </div>
 
-<div class="card">
+<div class="card mt-3">
   <div class="card-header">
     <h5 class="mb-0">Change Your Password</h5>
   </div>
