@@ -5,7 +5,7 @@ import subprocess
 
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = APP_DIR / "bells.db"
-PLAY_SCRIPT = APP_DIR / "play_alarm.sh"
+PLAY_SCRIPT = APP_DIR / "play_cron_sound.sh"
 
 def get_alarms():
     conn = sqlite3.connect(DB_PATH)
@@ -32,8 +32,16 @@ def build_cron_lines(alarms):
         # cron: minute hour * * day_of_week(1-7, Mon=1)
         cron_dow = (dow + 1)  # 0->1, 6->7
 
+        # Convert to absolute paths
+        play_script_abs = str(PLAY_SCRIPT.resolve())
+        # If sound_path is relative, make it absolute relative to APP_DIR/sounds
+        if not Path(sound_path).is_absolute():
+            sound_path_abs = str((APP_DIR / "sounds" / Path(sound_path).name).resolve())
+        else:
+            sound_path_abs = sound_path
+
         line = f"# ChurchBell Alarm ID {alarm_id}\n"
-        line += f"{int(minute)} {int(hour)} * * {cron_dow} {PLAY_SCRIPT} {sound_path}\n"
+        line += f"{int(minute)} {int(hour)} * * {cron_dow} {play_script_abs} {sound_path_abs}\n"
         lines.append(line)
     return lines
 
