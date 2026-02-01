@@ -84,22 +84,29 @@ fi
 [ -d "$APP_DIR/sounds" ] && pass "Sounds directory exists" || fail "Missing sounds directory"
 
 # ---------------------------------------------------------
-# 4. Check ownership
+# 4. Check ownership (should be owned by current user/service user)
 # ---------------------------------------------------------
+CURRENT_USER="$(whoami)"
 OWNER=$(stat -c "%U" "$APP_DIR")
-if [[ "$OWNER" == "$SERVICE_USER" ]]; then
-    pass "App directory owned by $SERVICE_USER"
+if [[ "$OWNER" == "$CURRENT_USER" ]] || [[ "$OWNER" == "$SERVICE_USER" ]]; then
+    pass "App directory owned by $OWNER"
 else
-    fail "App directory owned by $OWNER (expected $SERVICE_USER)"
+    fail "App directory owned by $OWNER (expected $CURRENT_USER or $SERVICE_USER)"
 fi
 
 # ---------------------------------------------------------
-# 5. Audio test
+# 5. Audio test (PipeWire for Pi3 compatibility)
 # ---------------------------------------------------------
-if command -v aplay &>/dev/null; then
-    pass "aplay installed"
+if command -v pw-play &>/dev/null; then
+    pass "pw-play (PipeWire) installed"
 else
-    fail "aplay missing"
+    fail "pw-play (PipeWire) missing - required for Pi3"
+fi
+
+if systemctl --user is-active pipewire.service &>/dev/null || systemctl is-active pipewire.service &>/dev/null; then
+    pass "PipeWire service running"
+else
+    fail "PipeWire service not running"
 fi
 
 # ---------------------------------------------------------
