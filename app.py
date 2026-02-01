@@ -261,11 +261,21 @@ def alarms():
         except Exception:
             sound_files = []
 
+    # Get edit parameters from URL (if editing)
+    edit_day = request.args.get("edit_day")
+    edit_time = request.args.get("edit_time")
+    edit_sound = request.args.get("edit_sound")
+    edit_enabled = request.args.get("edit_enabled")
+
     return render_template(
         "alarms.html",
         alarms=alarms,
         volume=volume,
         sounds=sound_files,
+        edit_day=edit_day,
+        edit_time=edit_time,
+        edit_sound=edit_sound,
+        edit_enabled=edit_enabled,
     )
 
 
@@ -317,6 +327,32 @@ def delete_alarm(alarm_id):
     db.commit()
 
     sync_cron()
+    return redirect(url_for("alarms"))
+
+@app.route("/edit_alarm/<int:alarm_id>")
+@login_required
+def edit_alarm(alarm_id):
+    """Delete alarm and redirect to form with pre-filled values"""
+    db = get_db()
+    alarm = db.execute(
+        "SELECT day_of_week, time_str, sound_path, enabled FROM alarms WHERE id = ?",
+        (alarm_id,)
+    ).fetchone()
+    
+    if alarm:
+        # Delete the alarm
+        db.execute("DELETE FROM alarms WHERE id = ?", (alarm_id,))
+        db.commit()
+        sync_cron()
+        
+        # Redirect with form data as URL parameters
+        return redirect(url_for("alarms", 
+            edit_day=alarm["day_of_week"],
+            edit_time=alarm["time_str"],
+            edit_sound=alarm["sound_path"],
+            edit_enabled=alarm["enabled"]
+        ))
+    
     return redirect(url_for("alarms"))
 
 
