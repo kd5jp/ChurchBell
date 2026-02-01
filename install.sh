@@ -68,22 +68,8 @@ sudo rsync -a \
 
 # Set ownership to current user (service user is same as current user)
 CURRENT_USER="$(whoami)"
-# #region agent log
-echo "DEBUG: Before chown - APP_DIR=$APP_DIR, CURRENT_USER=$CURRENT_USER, PWD=$(pwd)" >> /tmp/install_debug.log 2>&1
-ls -ld "$APP_DIR" >> /tmp/install_debug.log 2>&1 || true
-# #endregion
 sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$APP_DIR"
-# #region agent log
-echo "DEBUG: After chown - checking ownership" >> /tmp/install_debug.log 2>&1
-ls -ld "$APP_DIR" >> /tmp/install_debug.log 2>&1 || true
-stat -c "%U:%G %a" "$APP_DIR" >> /tmp/install_debug.log 2>&1 || true
-# #endregion
 sudo chmod -R 755 "$APP_DIR"
-# #region agent log
-echo "DEBUG: After chmod - checking permissions" >> /tmp/install_debug.log 2>&1
-stat -c "%U:%G %a" "$APP_DIR" >> /tmp/install_debug.log 2>&1 || true
-test -w "$APP_DIR" && echo "DEBUG: APP_DIR is writable" >> /tmp/install_debug.log 2>&1 || echo "DEBUG: APP_DIR is NOT writable" >> /tmp/install_debug.log 2>&1
-# #endregion
 
 # ------------------------------------------------------------
 # 4. Create application directories
@@ -99,38 +85,13 @@ chown -R "$CURRENT_USER":"$CURRENT_USER" "$APP_DIR/sounds" "$APP_DIR/templates" 
 # 5. Python virtual environment
 # ------------------------------------------------------------
 echo "[4/9] Setting up Python virtual environment..."
-# #region agent log
-echo "DEBUG: Before cd - APP_DIR=$APP_DIR, PWD=$(pwd), CURRENT_USER=$CURRENT_USER" >> /tmp/install_debug.log 2>&1
-# #endregion
 cd "$APP_DIR" || {
-    echo "ERROR: Failed to cd to $APP_DIR" >> /tmp/install_debug.log 2>&1
+    echo "ERROR: Failed to cd to $APP_DIR"
     exit 1
 }
-# #region agent log
-echo "DEBUG: After cd - PWD=$(pwd)" >> /tmp/install_debug.log 2>&1
-ls -ld . >> /tmp/install_debug.log 2>&1 || true
-stat -c "%U:%G %a" . >> /tmp/install_debug.log 2>&1 || true
-test -w . && echo "DEBUG: Current directory is writable" >> /tmp/install_debug.log 2>&1 || echo "DEBUG: Current directory is NOT writable" >> /tmp/install_debug.log 2>&1
-id >> /tmp/install_debug.log 2>&1 || true
-# #endregion
 if [ ! -d "venv" ]; then
-    # #region agent log
-    echo "DEBUG: About to create venv - PWD=$(pwd), USER=$(whoami)" >> /tmp/install_debug.log 2>&1
-    echo "DEBUG: Testing write access" >> /tmp/install_debug.log 2>&1
-    touch ./install_debug_test_write.txt 2>> /tmp/install_debug.log && rm -f ./install_debug_test_write.txt && echo "DEBUG: Can write to current dir" >> /tmp/install_debug.log 2>&1 || echo "DEBUG: Cannot write to current dir" >> /tmp/install_debug.log 2>&1
-    python3 -c "import os; print('DEBUG: Python cwd:', os.getcwd()); print('DEBUG: Python can write:', os.access('.', os.W_OK)); print('DEBUG: Python effective user:', os.geteuid() if hasattr(os, 'geteuid') else 'N/A')" >> /tmp/install_debug.log 2>&1
-    # #endregion
-    # #region agent log
-    echo "DEBUG: Running: python3 -m venv venv" >> /tmp/install_debug.log 2>&1
-    # #endregion
-    python3 -m venv venv >> /tmp/install_debug.log 2>&1 || {
-        EXIT_CODE=$?
-        # #region agent log
-        echo "ERROR: venv creation failed with exit code $EXIT_CODE" >> /tmp/install_debug.log 2>&1
-        echo "DEBUG: Checking if venv directory was partially created" >> /tmp/install_debug.log 2>&1
-        ls -la venv 2>> /tmp/install_debug.log || echo "DEBUG: venv directory does not exist" >> /tmp/install_debug.log 2>&1
-        python3 --version >> /tmp/install_debug.log 2>&1
-        # #endregion
+    python3 -m venv venv || {
+        echo "ERROR: Failed to create virtual environment"
         exit 1
     }
     echo "[OK] Created venv"
