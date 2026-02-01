@@ -43,7 +43,7 @@ sudo apt install -y \
     python3 python3-pip python3-venv \
     git cron sqlite3 libsqlite3-dev \
     pipewire pipewire-alsa pipewire-pulse wireplumber \
-    dos2unix rsync openssl sox
+    dos2unix rsync openssl
 
 # ------------------------------------------------------------
 # 2. Ensure current user is in required groups
@@ -104,32 +104,32 @@ source venv/bin/activate
 # ------------------------------------------------------------
 echo "[6/12] Installing Python packages..."
 pip install --upgrade pip
-pip install flask numpy
+pip install flask
 
 # ------------------------------------------------------------
-# 6b. Generate default chime sounds
+# 6b. Generate default chime sound
 # ------------------------------------------------------------
-echo "[6b/12] Generating default chime sounds..."
+echo "[6b/12] Generating default chime sound..."
 cd "$APP_DIR" || {
     echo "ERROR: Failed to cd to $APP_DIR"
     exit 1
 }
-if [ -f "generate_bell_tones.py" ]; then
+if [ -f "generate_chime.py" ]; then
     # Use venv python if available, otherwise system python3
     if [ -f "venv/bin/python" ]; then
-        venv/bin/python generate_bell_tones.py || echo "[WARN] Failed to generate chime sounds"
+        venv/bin/python generate_chime.py "$APP_DIR/sounds/chime.wav" || echo "[WARN] Failed to generate chime sound"
     else
-        python3 generate_bell_tones.py || echo "[WARN] Failed to generate chime sounds"
+        python3 generate_chime.py "$APP_DIR/sounds/chime.wav" || echo "[WARN] Failed to generate chime sound"
     fi
 else
-    echo "[WARN] generate_bell_tones.py not found - skipping chime generation"
+    echo "[WARN] generate_chime.py not found - skipping chime generation"
 fi
 
 # ------------------------------------------------------------
 # 7. Permissions for scripts
 # ------------------------------------------------------------
 echo "[7/12] Setting script permissions..."
-SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh generate_bell_tones.py)
+SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh generate_chime.py)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
     chmod +x "$APP_DIR/$script"
