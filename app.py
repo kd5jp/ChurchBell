@@ -170,6 +170,11 @@ def change_password():
 # ---------- dashboard ----------
 
 @app.route("/")
+def root():
+    """Redirect root URL to login page"""
+    return redirect(url_for("login"))
+
+@app.route("/dashboard")
 @login_required
 def dashboard():
     db = get_db()
