@@ -27,10 +27,9 @@ def get_service_status(service):
 
 @app.route("/")
 def index():
-    # Redirect to port 8080 login
+    # Redirect HTTP (port 80) to HTTPS login (port 8080)
     host = request.host.split(":")[0]
-    from flask import redirect
-    return redirect(f"http://{host}:8080/login", code=302)
+    return redirect(f"https://{host}:8080/login", code=302)
 
     # Get service statuses
     home_status, home_logs = get_service_status("churchbell-home.service")

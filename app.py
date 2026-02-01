@@ -15,7 +15,7 @@ DEFAULT_PASSWORD = os.getenv("CHURCHBELL_ADMIN_PASS", "changeme")  # stored as p
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"  # replace in production
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = False  # set True if using HTTPS
+app.config["SESSION_COOKIE_SECURE"] = True  # HTTPS required
 
 
 # ---------- CRON SYNC HELPER ----------
@@ -521,4 +521,21 @@ if __name__ == "__main__":
         init_db()
     except Exception as e:
         print(f"Warning: Database initialization issue: {e}")
-    app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)
+    
+    # SSL certificate paths
+    CERT_DIR = APP_DIR / "ssl"
+    CERT_FILE = CERT_DIR / "cert.pem"
+    KEY_FILE = CERT_DIR / "key.pem"
+    
+    # Check if certificates exist
+    if CERT_FILE.exists() and KEY_FILE.exists():
+        import ssl
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
+        print(f"Starting HTTPS server on port 8080 with SSL certificates")
+        app.run(host="0.0.0.0", port=8080, debug=False, threaded=True, ssl_context=context)
+    else:
+        print(f"ERROR: SSL certificates not found at {CERT_FILE} and {KEY_FILE}")
+        print(f"Please run: ./generate_ssl_cert.sh")
+        print(f"Starting HTTP server (insecure) - SSL required for production")
+        app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)

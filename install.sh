@@ -37,19 +37,19 @@ echo ""
 # ------------------------------------------------------------
 # 1. System packages
 # ------------------------------------------------------------
-echo "[1/9] Installing system dependencies..."
+echo "[1/11] Installing system dependencies..."
 sudo apt update
 sudo apt install -y \
     python3 python3-pip python3-venv \
     git cron sqlite3 libsqlite3-dev \
     pipewire pipewire-alsa pipewire-pulse wireplumber \
-    dos2unix rsync
+    dos2unix rsync openssl
 
 # ------------------------------------------------------------
 # 2. Ensure current user is in required groups
 # ------------------------------------------------------------
 CURRENT_USER="$(whoami)"
-echo "[2/9] Setting up user groups..."
+echo "[2/11] Setting up user groups..."
 # Add current user to audio and other required groups
 sudo usermod -aG audio,video,gpio,input,spi,i2c,dialout "$CURRENT_USER" || true
 echo "[INFO] User $CURRENT_USER will be used as service user"
@@ -57,7 +57,7 @@ echo "[INFO] User $CURRENT_USER will be used as service user"
 # ------------------------------------------------------------
 # 3. Sync application files
 # ------------------------------------------------------------
-echo "[3/9] Syncing application files..."
+echo "[3/11] Syncing application files..."
 sudo mkdir -p "$APP_DIR"
 sudo rsync -a \
     --exclude "venv" \
@@ -74,7 +74,7 @@ sudo chmod -R 755 "$APP_DIR"
 # ------------------------------------------------------------
 # 4. Create application directories
 # ------------------------------------------------------------
-echo "[3/9] Creating application directories..."
+echo "[4/11] Creating application directories..."
 mkdir -p "$APP_DIR/sounds"
 mkdir -p "$APP_DIR/templates"
 mkdir -p "$APP_DIR/static"
@@ -84,7 +84,7 @@ chown -R "$CURRENT_USER":"$CURRENT_USER" "$APP_DIR/sounds" "$APP_DIR/templates" 
 # ------------------------------------------------------------
 # 5. Python virtual environment
 # ------------------------------------------------------------
-echo "[4/9] Setting up Python virtual environment..."
+echo "[5/11] Setting up Python virtual environment..."
 cd "$APP_DIR" || {
     echo "ERROR: Failed to cd to $APP_DIR"
     exit 1
@@ -102,15 +102,15 @@ source venv/bin/activate
 # ------------------------------------------------------------
 # 6. Install Python dependencies
 # ------------------------------------------------------------
-echo "[5/9] Installing Python packages..."
+echo "[6/11] Installing Python packages..."
 pip install --upgrade pip
 pip install flask
 
 # ------------------------------------------------------------
 # 7. Permissions for scripts
 # ------------------------------------------------------------
-echo "[6/9] Setting script permissions..."
-SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
+echo "[7/11] Setting script permissions..."
+SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
     chmod +x "$APP_DIR/$script"
@@ -121,7 +121,7 @@ done
 # ------------------------------------------------------------
 # 8. Systemd services
 # ------------------------------------------------------------
-echo "[7/9] Installing systemd services..."
+echo "[8/11] Installing systemd services..."
 
 # Get user ID for XDG_RUNTIME_DIR
 SERVICE_UID=$(id -u "$SERVICE_USER" 2>/dev/null || echo "1000")
@@ -173,7 +173,7 @@ sudo systemctl restart churchbell-home.service
 # ------------------------------------------------------------
 # 9. PipeWire audio setup (required for Pi3)
 # ------------------------------------------------------------
-echo "[8/9] Setting up PipeWire audio system..."
+echo "[9/11] Setting up PipeWire audio system..."
 # Enable and start PipeWire services (may be user or system service)
 if systemctl list-unit-files | grep -q "pipewire.service"; then
     sudo systemctl enable pipewire.service || true
@@ -198,9 +198,20 @@ else
 fi
 
 # ------------------------------------------------------------
-# 10. Cron setup
+# 10. SSL Certificate generation
 # ------------------------------------------------------------
-echo "[9/9] Ensuring cron is running..."
+echo "[10/11] Generating SSL certificate for HTTPS..."
+cd "$APP_DIR"
+if [ -f "generate_ssl_cert.sh" ]; then
+    bash generate_ssl_cert.sh || echo "[WARN] SSL certificate generation failed - HTTPS will not work"
+else
+    echo "[WARN] generate_ssl_cert.sh not found - HTTPS will not work"
+fi
+
+# ------------------------------------------------------------
+# 11. Cron setup
+# ------------------------------------------------------------
+echo "[11/11] Ensuring cron is running..."
 sudo systemctl enable cron
 sudo systemctl start cron
 
@@ -216,8 +227,9 @@ python3 update_play_alarm_path.py || true
 # ------------------------------------------------------------
 echo ""
 echo "=== ChurchBell installation complete ==="
-echo "Service is running on port 8080"
-echo "Visit: http://<your-pi-ip>:8080"
+echo "Service is running on HTTPS port 8080"
+echo "Visit: https://<your-pi-ip>:8080"
+echo "HTTP port 80 redirects to HTTPS login"
 echo ""
 
 # Final ownership check (everything owned by current user)
