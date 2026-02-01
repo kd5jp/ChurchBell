@@ -24,41 +24,40 @@ fi
 
 SERVICE_FILE="/etc/systemd/system/churchbell.service"
 HOME_SERVICE_FILE="/etc/systemd/system/churchbell-home.service"
-SERVICE_USER="${CHURCHBELL_SERVICE_USER:-churchbells}"
+# Use the current user as the service user (no separate service user)
+SERVICE_USER="${CHURCHBELL_SERVICE_USER:-$(whoami)}"
 ADMIN_USER="${CHURCHBELL_ADMIN_USER:-admin}"
 ADMIN_PASS="${CHURCHBELL_ADMIN_PASS:-changeme}"
 
 echo "=== ChurchBell Installer ==="
 echo "Installing into: $APP_DIR"
-echo "Service user: $SERVICE_USER"
+echo "Service user: $SERVICE_USER (current user)"
 echo ""
 
 # ------------------------------------------------------------
 # 1. System packages
 # ------------------------------------------------------------
-echo "[1/8] Installing system dependencies..."
+echo "[1/9] Installing system dependencies..."
 sudo apt update
 sudo apt install -y \
     python3 python3-pip python3-venv \
     git cron sqlite3 libsqlite3-dev \
-    alsa-utils dos2unix rsync
+    pipewire pipewire-alsa pipewire-pulse wireplumber \
+    dos2unix rsync
 
 # ------------------------------------------------------------
-# 2. Create service user
+# 2. Ensure current user is in required groups
 # ------------------------------------------------------------
-if ! id "$SERVICE_USER" &>/dev/null; then
-  sudo adduser --system --group --home "$APP_DIR" "$SERVICE_USER"
-  echo "[INFO] Created service user $SERVICE_USER"
-fi
-sudo usermod -aG audio,video,gpio,input,spi,i2c,dialout "$SERVICE_USER" || true
-# Add current user (pi) to service user's group so pi can access directories owned by churchbells
 CURRENT_USER="$(whoami)"
-sudo usermod -aG "$SERVICE_USER" "$CURRENT_USER" || true
+echo "[2/9] Setting up user groups..."
+# Add current user to audio and other required groups
+sudo usermod -aG audio,video,gpio,input,spi,i2c,dialout "$CURRENT_USER" || true
+echo "[INFO] User $CURRENT_USER will be used as service user"
 
 # ------------------------------------------------------------
 # 3. Sync application files
 # ------------------------------------------------------------
-echo "[2/8] Syncing application files..."
+echo "[3/9] Syncing application files..."
 sudo mkdir -p "$APP_DIR"
 sudo rsync -a \
     --exclude "venv" \
@@ -67,35 +66,62 @@ sudo rsync -a \
     --exclude "backups" \
     "$SOURCE_DIR"/ "$APP_DIR"/
 
-# Set ownership immediately after rsync to prevent permission issues
-sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
-# Ensure .git remains owned by pi user for git operations (needed for git pull)
-if [ -d "$APP_DIR/.git" ]; then
-    sudo chown -R "$(whoami):$(whoami)" "$APP_DIR/.git"
-fi
-
-# Make directory itself accessible to pi user: set group ownership and ensure group can traverse
+# Set ownership to current user (service user is same as current user)
 CURRENT_USER="$(whoami)"
-sudo chown "$CURRENT_USER":"$SERVICE_USER" "$APP_DIR"
-sudo chmod 775 "$APP_DIR"  # Owner and group can read/write/execute, others can read/execute
+# #region agent log
+echo "DEBUG: Before chown - APP_DIR=$APP_DIR, CURRENT_USER=$CURRENT_USER, PWD=$(pwd)" >> /tmp/install_debug.log 2>&1
+ls -ld "$APP_DIR" >> /tmp/install_debug.log 2>&1 || true
+# #endregion
+sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$APP_DIR"
+# #region agent log
+echo "DEBUG: After chown - checking ownership" >> /tmp/install_debug.log 2>&1
+ls -ld "$APP_DIR" >> /tmp/install_debug.log 2>&1 || true
+stat -c "%U:%G %a" "$APP_DIR" >> /tmp/install_debug.log 2>&1 || true
+# #endregion
+sudo chmod -R 755 "$APP_DIR"
+# #region agent log
+echo "DEBUG: After chmod - checking permissions" >> /tmp/install_debug.log 2>&1
+stat -c "%U:%G %a" "$APP_DIR" >> /tmp/install_debug.log 2>&1 || true
+test -w "$APP_DIR" && echo "DEBUG: APP_DIR is writable" >> /tmp/install_debug.log 2>&1 || echo "DEBUG: APP_DIR is NOT writable" >> /tmp/install_debug.log 2>&1
+# #endregion
 
 # ------------------------------------------------------------
 # 4. Create application directories
 # ------------------------------------------------------------
-echo "[3/8] Creating application directories..."
-sudo mkdir -p "$APP_DIR/sounds"
-sudo mkdir -p "$APP_DIR/templates"
-sudo mkdir -p "$APP_DIR/static"
-sudo mkdir -p "$APP_DIR/backups"
-sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR/sounds" "$APP_DIR/templates" "$APP_DIR/static" "$APP_DIR/backups"
+echo "[3/9] Creating application directories..."
+mkdir -p "$APP_DIR/sounds"
+mkdir -p "$APP_DIR/templates"
+mkdir -p "$APP_DIR/static"
+mkdir -p "$APP_DIR/backups"
+chown -R "$CURRENT_USER":"$CURRENT_USER" "$APP_DIR/sounds" "$APP_DIR/templates" "$APP_DIR/static" "$APP_DIR/backups" 2>/dev/null || true
 
 # ------------------------------------------------------------
 # 5. Python virtual environment
 # ------------------------------------------------------------
-echo "[4/8] Setting up Python virtual environment..."
-cd "$APP_DIR"
+echo "[4/9] Setting up Python virtual environment..."
+# #region agent log
+echo "DEBUG: Before cd - APP_DIR=$APP_DIR, PWD=$(pwd), CURRENT_USER=$CURRENT_USER" >> /tmp/install_debug.log 2>&1
+# #endregion
+cd "$APP_DIR" || {
+    echo "ERROR: Failed to cd to $APP_DIR" >> /tmp/install_debug.log 2>&1
+    exit 1
+}
+# #region agent log
+echo "DEBUG: After cd - PWD=$(pwd)" >> /tmp/install_debug.log 2>&1
+ls -ld . >> /tmp/install_debug.log 2>&1 || true
+stat -c "%U:%G %a" . >> /tmp/install_debug.log 2>&1 || true
+test -w . && echo "DEBUG: Current directory is writable" >> /tmp/install_debug.log 2>&1 || echo "DEBUG: Current directory is NOT writable" >> /tmp/install_debug.log 2>&1
+id >> /tmp/install_debug.log 2>&1 || true
+# #endregion
 if [ ! -d "venv" ]; then
-    sudo -u "$SERVICE_USER" python3 -m venv venv
+    # #region agent log
+    echo "DEBUG: About to create venv - PWD=$(pwd), USER=$(whoami)" >> /tmp/install_debug.log 2>&1
+    # #endregion
+    python3 -m venv venv 2>> /tmp/install_debug.log || {
+        echo "ERROR: venv creation failed" >> /tmp/install_debug.log 2>&1
+        exit 1
+    }
+    echo "[OK] Created venv"
 fi
 
 source venv/bin/activate
@@ -103,14 +129,14 @@ source venv/bin/activate
 # ------------------------------------------------------------
 # 6. Install Python dependencies
 # ------------------------------------------------------------
-echo "[5/8] Installing Python packages..."
+echo "[5/9] Installing Python packages..."
 pip install --upgrade pip
 pip install flask
 
 # ------------------------------------------------------------
 # 7. Permissions for scripts
 # ------------------------------------------------------------
-echo "[6/8] Setting script permissions..."
+echo "[6/9] Setting script permissions..."
 SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
@@ -122,12 +148,13 @@ done
 # ------------------------------------------------------------
 # 8. Systemd services
 # ------------------------------------------------------------
-echo "[7/8] Installing systemd services..."
+echo "[7/9] Installing systemd services..."
 
 sudo bash -c "cat > $SERVICE_FILE" <<EOF
 [Unit]
 Description=ChurchBell Web UI
-After=network.target sound.target
+After=network.target sound.target pipewire.service pipewire-pulse.service
+Wants=pipewire.service pipewire-pulse.service
 
 [Service]
 User=$SERVICE_USER
@@ -144,7 +171,8 @@ EOF
 sudo bash -c "cat > $HOME_SERVICE_FILE" <<EOF
 [Unit]
 Description=ChurchBell Home UI
-After=network.target sound.target
+After=network.target sound.target pipewire.service pipewire-pulse.service
+Wants=pipewire.service pipewire-pulse.service
 
 [Service]
 User=$SERVICE_USER
@@ -166,17 +194,45 @@ sudo systemctl restart churchbell.service
 sudo systemctl restart churchbell-home.service
 
 # ------------------------------------------------------------
-# 9. Cron setup
+# 9. PipeWire audio setup (required for Pi3)
 # ------------------------------------------------------------
-echo "[8/8] Ensuring cron is running..."
+echo "[8/9] Setting up PipeWire audio system..."
+# Enable and start PipeWire services (may be user or system service)
+if systemctl list-unit-files | grep -q "pipewire.service"; then
+    sudo systemctl enable pipewire.service || true
+    sudo systemctl start pipewire.service || true
+fi
+if systemctl list-unit-files | grep -q "pipewire-pulse.service"; then
+    sudo systemctl enable pipewire-pulse.service || true
+    sudo systemctl start pipewire-pulse.service || true
+fi
+# Also try user service (common on newer Pi OS) - use current user
+CURRENT_USER="$(whoami)"
+systemctl --user enable pipewire.service 2>/dev/null || true
+systemctl --user start pipewire.service 2>/dev/null || true
+systemctl --user enable pipewire-pulse.service 2>/dev/null || true
+systemctl --user start pipewire-pulse.service 2>/dev/null || true
+
+# Verify pw-play is available
+if command -v pw-play &>/dev/null; then
+    echo "[OK] pw-play (PipeWire) is available"
+else
+    echo "[WARN] pw-play not found - audio playback may not work"
+fi
+
+# ------------------------------------------------------------
+# 10. Cron setup
+# ------------------------------------------------------------
+echo "[9/9] Ensuring cron is running..."
 sudo systemctl enable cron
 sudo systemctl start cron
 
 echo "Syncing cron with current alarms..."
-python3 "$APP_DIR/sync_cron.py" || true
+cd "$APP_DIR"
+python3 sync_cron.py || true
 
 echo "Updating play_alarm.sh with correct project path..."
-python3 "$APP_DIR/update_play_alarm_path.py" || true
+python3 update_play_alarm_path.py || true
 
 # ------------------------------------------------------------
 # Done
@@ -187,8 +243,6 @@ echo "Service is running on port 8080"
 echo "Visit: http://<your-pi-ip>:8080"
 echo ""
 
-# Final ownership sweep (excluding .git so pi user can pull)
-sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
-if [ -d "$APP_DIR/.git" ]; then
-    sudo chown -R "$(whoami):$(whoami)" "$APP_DIR/.git"
-fi
+# Final ownership check (everything owned by current user)
+CURRENT_USER="$(whoami)"
+sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$APP_DIR" 2>/dev/null || true

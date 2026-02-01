@@ -29,6 +29,21 @@ python3 --version | tee -a "$LOGFILE"
 df -h | tee -a "$LOGFILE"
 free -h | tee -a "$LOGFILE"
 
+# Audio system check (PipeWire for Pi3)
+echo "[INFO] Checking audio system..." | tee -a "$LOGFILE"
+if command -v pw-play &>/dev/null; then
+    echo "[OK] pw-play (PipeWire) installed" | tee -a "$LOGFILE"
+    pw-play --version 2>&1 | tee -a "$LOGFILE" || echo "[INFO] pw-play version check failed" | tee -a "$LOGFILE"
+else
+    echo "[ERROR] pw-play (PipeWire) NOT installed - required for Pi3" | tee -a "$LOGFILE"
+fi
+
+if systemctl --user is-active pipewire.service &>/dev/null || systemctl is-active pipewire.service &>/dev/null; then
+    echo "[OK] PipeWire service is running" | tee -a "$LOGFILE"
+else
+    echo "[WARN] PipeWire service may not be running" | tee -a "$LOGFILE"
+fi
+
 # Service status
 echo "[INFO] Checking systemd services..." | tee -a "$LOGFILE"
 systemctl status "$SERVICE_NAME" --no-pager | tee -a "$LOGFILE"
