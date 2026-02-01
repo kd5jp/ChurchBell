@@ -59,7 +59,12 @@ git clone https://github.com/kd5jp/ChurchBell.git
 cd ChurchBell
 ```
 
-2. Run the installer:
+2. Make scripts executable:
+```bash
+chmod +x *.sh
+```
+
+3. Run the installer:
 ```bash
 ./install.sh
 ```
@@ -97,9 +102,12 @@ After installation, access the system:
 
 - **Web Interface**: `https://<pi-ip>:8080` (HTTPS) or `http://<pi-ip>:8080` (HTTP fallback)
 - **Home Page**: `http://<pi-ip>` (redirects to HTTPS login)
-- **Default Login**: 
-  - Username: `admin`
-  - Password: `changeme` (change immediately!)
+
+**⚠️ Default Login Credentials:**
+- **Username**: `admin`
+- **Password**: `changeme`
+
+**Important**: Change the default password immediately after first login!
 
 ## Usage
 
