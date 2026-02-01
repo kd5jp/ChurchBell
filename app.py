@@ -272,10 +272,10 @@ def alarms():
         alarms=alarms,
         volume=volume,
         sounds=sound_files,
-        edit_day=edit_day,
-        edit_time=edit_time,
-        edit_sound=edit_sound,
-        edit_enabled=edit_enabled,
+        edit_day=edit_day if edit_day else None,
+        edit_time=edit_time if edit_time else None,
+        edit_sound=edit_sound if edit_sound else None,
+        edit_enabled=edit_enabled if edit_enabled else None,
     )
 
 
@@ -385,7 +385,10 @@ def update_alarm(alarm_id):
 @login_required
 def test_sound(filename):
     sound_path = f"sounds/{filename}"
-    play_sound(sound_path)
+    result = play_sound(sound_path)
+    # Return debug info if available
+    if result and isinstance(result, dict) and result.get("error"):
+        return result.get("message", "Error playing sound"), 500
     return ("", 204)
 
 @app.route("/upload_sound", methods=["POST"])
@@ -443,18 +446,49 @@ def set_volume():
 # NOTE: Uses pw-play (PipeWire). aplay (ALSA) is NOT supported in future Pi3 builds.
 
 def play_sound(sound_path):
+    """Play sound file using pw-play. Returns dict with debug info on error."""
     full_path = str((APP_DIR / sound_path).resolve())
+    
+    # Debug: Log the command
+    cmd = ["pw-play", full_path]
+    print(f"[DEBUG] Executing: {' '.join(cmd)}", flush=True)
+    
     if not os.path.exists(full_path):
-        return
+        error_msg = f"File not found: {full_path}"
+        print(f"[ERROR] {error_msg}", flush=True)
+        return {"error": True, "message": error_msg, "command": " ".join(cmd)}
+    
     try:
-        subprocess.run(
-            ["pw-play", full_path],
+        # Capture stderr to see any errors
+        result = subprocess.run(
+            cmd,
             check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10
         )
-    except Exception:
-        pass
+        
+        if result.returncode != 0:
+            error_msg = f"pw-play failed (exit code {result.returncode}): {result.stderr}"
+            print(f"[ERROR] {error_msg}", flush=True)
+            return {
+                "error": True, 
+                "message": error_msg, 
+                "command": " ".join(cmd),
+                "stderr": result.stderr
+            }
+        
+        print(f"[SUCCESS] Sound played: {full_path}", flush=True)
+        return None
+    except subprocess.TimeoutExpired:
+        error_msg = f"pw-play timed out after 10 seconds"
+        print(f"[ERROR] {error_msg}", flush=True)
+        return {"error": True, "message": error_msg, "command": " ".join(cmd)}
+    except Exception as e:
+        error_msg = f"Exception running pw-play: {str(e)}"
+        print(f"[ERROR] {error_msg}", flush=True)
+        return {"error": True, "message": error_msg, "command": " ".join(cmd)}
 
 
 # ---------- main ----------

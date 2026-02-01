@@ -65,10 +65,10 @@
 
 <div class="card">
   <div class="card-header">
-    <h5 class="mb-0">{% if edit_day is defined %}Edit Alarm{% else %}Add New Alarm{% endif %}</h5>
+    <h5 class="mb-0">{% if edit_day is defined and edit_day is not none %}Edit Alarm{% else %}Add New Alarm{% endif %}</h5>
   </div>
   <div class="card-body">
-    {% if edit_day is defined %}
+    {% if edit_day is defined and edit_day is not none %}
     <div class="alert alert-info mb-3">
       Editing alarm. Make changes and click "Save Alarm" or click "Cancel" to discard.
     </div>
@@ -79,7 +79,7 @@
           <label class="form-label">Day</label>
           <select name="day_of_week" class="form-select" required>
             {% for i in range(7) %}
-              <option value="{{ i }}" {% if edit_day is defined and i|int == edit_day|int %}selected{% endif %}>
+              <option value="{{ i }}" {% if edit_day is defined and edit_day is not none and i|int == edit_day|int %}selected{% endif %}>
                 {{ ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][i] }}
               </option>
             {% endfor %}
@@ -88,13 +88,13 @@
         <div class="col-md-3 mb-3">
           <label class="form-label">Time</label>
           <input type="time" name="time_str" class="form-control" 
-                 value="{% if edit_time is defined %}{{ edit_time }}{% endif %}" required>
+                 value="{% if edit_time is defined and edit_time is not none %}{{ edit_time }}{% endif %}" required>
         </div>
         <div class="col-md-4 mb-3">
           <label class="form-label">Sound</label>
           <select name="sound_path" class="form-select" required>
             {% for s in sounds %}
-              <option value="sounds/{{ s }}" {% if edit_sound is defined and edit_sound.endswith(s) %}selected{% endif %}>
+              <option value="sounds/{{ s }}" {% if edit_sound is defined and edit_sound is not none and edit_sound.endswith(s) %}selected{% endif %}>
                 {{ s }}
               </option>
             {% endfor %}
@@ -103,14 +103,14 @@
         <div class="col-md-2 mb-3 d-flex align-items-end">
           <div class="form-check">
             <input type="checkbox" name="enabled" class="form-check-input" id="enabled" 
-                   {% if edit_enabled is defined and edit_enabled|int == 1 %}checked{% elif edit_day is not defined %}checked{% endif %}>
+                   {% if edit_enabled is defined and edit_enabled is not none and edit_enabled|int == 1 %}checked{% elif edit_day is not defined or edit_day is none %}checked{% endif %}>
             <label class="form-check-label" for="enabled">Enabled</label>
           </div>
         </div>
       </div>
       <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">{% if edit_day is defined %}Save Alarm{% else %}Add Alarm{% endif %}</button>
-        {% if edit_day is defined %}
+        <button type="submit" class="btn btn-primary">{% if edit_day is defined and edit_day is not none %}Save Alarm{% else %}Add Alarm{% endif %}</button>
+        {% if edit_day is defined and edit_day is not none %}
         <a href="{{ url_for('alarms') }}" class="btn btn-secondary">Cancel</a>
         {% endif %}
       </div>
@@ -143,7 +143,10 @@
           <tr>
             <td>{{ s }}</td>
             <td>
-              <a href="{{ url_for('test_sound', filename=s) }}" class="btn btn-sm btn-secondary">Test</a>
+              <a href="{{ url_for('test_sound', filename=s) }}" 
+                 class="btn btn-sm btn-secondary" 
+                 onclick="testSound('{{ s }}', this); return false;"
+                 title="Test sound: {{ s }}">Test</a>
               <a href="{{ url_for('delete_sound', filename=s) }}" 
                  class="btn btn-sm btn-danger"
                  onclick="return confirm('Delete {{ s }}?')">Delete</a>
@@ -200,6 +203,45 @@ function updateSystemTime() {
     hour12: true
   };
   document.getElementById('system-time').textContent = now.toLocaleString('en-US', options);
+}
+
+function testSound(filename, buttonElement) {
+  const originalText = buttonElement.textContent;
+  buttonElement.textContent = 'Testing...';
+  buttonElement.disabled = true;
+  
+  // Show command being executed
+  const command = `pw-play /home/pi/ChurchBell/sounds/${filename}`;
+  console.log('[TEST] Command:', command);
+  
+  // Create debug display
+  const debugDiv = document.createElement('div');
+  debugDiv.className = 'alert alert-info mt-2';
+  debugDiv.id = 'test-debug-' + filename;
+  debugDiv.innerHTML = `<strong>Testing:</strong> <code>${command}</code>`;
+  buttonElement.parentElement.parentElement.appendChild(debugDiv);
+  
+  fetch(`/test_sound/${filename}`)
+    .then(response => {
+      if (response.ok) {
+        debugDiv.className = 'alert alert-success mt-2';
+        debugDiv.innerHTML = `<strong>Success!</strong> Command executed: <code>${command}</code>`;
+        setTimeout(() => debugDiv.remove(), 3000);
+      } else {
+        return response.text().then(text => {
+          debugDiv.className = 'alert alert-danger mt-2';
+          debugDiv.innerHTML = `<strong>Error:</strong> ${text || 'Failed to play sound'}<br><code>${command}</code>`;
+        });
+      }
+    })
+    .catch(error => {
+      debugDiv.className = 'alert alert-danger mt-2';
+      debugDiv.innerHTML = `<strong>Error:</strong> ${error.message}<br><code>${command}</code>`;
+    })
+    .finally(() => {
+      buttonElement.textContent = originalText;
+      buttonElement.disabled = false;
+    });
 }
 
 // Update time immediately and then every second
