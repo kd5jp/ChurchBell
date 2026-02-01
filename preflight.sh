@@ -49,10 +49,10 @@ check "systemd available" "pidof systemd"
 check "sqlite3 installed" "command -v sqlite3"
 
 # ------------------------------------------------------------
-# 2. Audio checks
+# 2. Audio checks (PipeWire for Pi3 compatibility)
 # ------------------------------------------------------------
-check "ALSA utilities installed" "command -v aplay"
-check "Audio device present" "aplay -l"
+check "PipeWire installed" "command -v pw-play"
+check "PipeWire service running" "systemctl --user is-active pipewire.service || systemctl is-active pipewire.service"
 
 # ------------------------------------------------------------
 # 3. Network checks
