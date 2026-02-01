@@ -28,23 +28,6 @@ def get_service_status(service):
 @app.route("/")
 def index():
     # Redirect HTTP (port 80) to HTTPS login (port 8080)
-    # #region agent log
-    import json
-    from pathlib import Path
-    log_path = Path(__file__).parent / ".cursor" / "debug.log"
-    try:
-        host = request.host.split(":")[0]
-        redirect_url = f"https://{host}:8080/login"
-        with open(log_path, "a") as f:
-            json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"home.py:32","message":"Redirecting HTTP to HTTPS","data":{"request_host":request.host,"extracted_host":host,"redirect_url":redirect_url,"scheme":request.scheme},"timestamp":int(__import__("time").time()*1000)}, f)
-            f.write("\n")
-    except Exception as e:
-        try:
-            with open(log_path, "a") as f:
-                json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"home.py:35","message":"Error in redirect logic","data":{"error":str(e)},"timestamp":int(__import__("time").time()*1000)}, f)
-                f.write("\n")
-        except: pass
-    # #endregion
     host = request.host.split(":")[0]
     return redirect(f"https://{host}:8080/login", code=302)
 

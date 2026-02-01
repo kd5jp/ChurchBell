@@ -527,79 +527,20 @@ if __name__ == "__main__":
     CERT_FILE = CERT_DIR / "cert.pem"
     KEY_FILE = CERT_DIR / "key.pem"
     
-    # #region agent log
-    import json
-    log_path = APP_DIR / ".cursor" / "debug.log"
-    try:
-        with open(log_path, "a") as f:
-            json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"app.py:529","message":"Checking SSL certificates","data":{"cert_dir":str(CERT_DIR),"cert_exists":CERT_FILE.exists(),"key_exists":KEY_FILE.exists(),"cert_path":str(CERT_FILE),"key_path":str(KEY_FILE)},"timestamp":int(__import__("time").time()*1000)}, f)
-            f.write("\n")
-    except: pass
-    # #endregion
-    
     # Check if certificates exist
     if CERT_FILE.exists() and KEY_FILE.exists():
-        # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"app.py:532","message":"Certificates found, creating SSL context","data":{"cert_path":str(CERT_FILE),"key_path":str(KEY_FILE)},"timestamp":int(__import__("time").time()*1000)}, f)
-                f.write("\n")
-        except: pass
-        # #endregion
         import ssl
         try:
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"app.py:537","message":"SSL context created successfully","data":{"protocol":str(ssl.PROTOCOL_TLS_SERVER)},"timestamp":int(__import__("time").time()*1000)}, f)
-                    f.write("\n")
-            except: pass
-            # #endregion
             print(f"Starting HTTPS server on port 8080 with SSL certificates")
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"app.py:548","message":"Starting HTTPS server","data":{"port":8080,"protocol":"HTTPS","has_ssl_context":True},"timestamp":int(__import__("time").time()*1000)}, f)
-                    f.write("\n")
-            except: pass
-            # #endregion
             app.run(host="0.0.0.0", port=8080, debug=False, threaded=True, ssl_context=context)
         except Exception as e:
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"app.py:544","message":"SSL context creation failed","data":{"error":str(e),"error_type":type(e).__name__},"timestamp":int(__import__("time").time()*1000)}, f)
-                    f.write("\n")
-            except: pass
-            # #endregion
             print(f"ERROR: Failed to create SSL context: {e}")
             print(f"Starting HTTP server (insecure) - SSL required for production")
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"app.py:559","message":"Starting HTTP server (fallback)","data":{"port":8080,"protocol":"HTTP","has_ssl_context":False},"timestamp":int(__import__("time").time()*1000)}, f)
-                    f.write("\n")
-            except: pass
-            # #endregion
             app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)
     else:
-        # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"app.py:551","message":"Certificates not found, falling back to HTTP","data":{"cert_exists":CERT_FILE.exists(),"key_exists":KEY_FILE.exists()},"timestamp":int(__import__("time").time()*1000)}, f)
-                f.write("\n")
-        except: pass
-        # #endregion
         print(f"ERROR: SSL certificates not found at {CERT_FILE} and {KEY_FILE}")
         print(f"Please run: ./generate_ssl_cert.sh")
         print(f"Starting HTTP server (insecure) - SSL required for production")
-        # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                json.dump({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"app.py:567","message":"Starting HTTP server (no certs)","data":{"port":8080,"protocol":"HTTP","has_ssl_context":False},"timestamp":int(__import__("time").time()*1000)}, f)
-                f.write("\n")
-        except: pass
-        # #endregion
         app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)

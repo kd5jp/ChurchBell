@@ -110,7 +110,7 @@ pip install flask
 # 7. Permissions for scripts
 # ------------------------------------------------------------
 echo "[7/11] Setting script permissions..."
-SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
+SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
     chmod +x "$APP_DIR/$script"
@@ -119,9 +119,20 @@ for script in "${SCRIPTS[@]}"; do
 done
 
 # ------------------------------------------------------------
-# 8. Systemd services
+# 8. SSL Certificate generation (before starting services)
 # ------------------------------------------------------------
-echo "[8/11] Installing systemd services..."
+echo "[8/11] Generating SSL certificate for HTTPS..."
+cd "$APP_DIR"
+if [ -f "generate_ssl_cert.sh" ]; then
+    bash generate_ssl_cert.sh || echo "[WARN] SSL certificate generation failed - HTTPS will not work"
+else
+    echo "[WARN] generate_ssl_cert.sh not found - HTTPS will not work"
+fi
+
+# ------------------------------------------------------------
+# 9. Systemd services
+# ------------------------------------------------------------
+echo "[9/11] Installing systemd services..."
 
 # Get user ID for XDG_RUNTIME_DIR
 SERVICE_UID=$(id -u "$SERVICE_USER" 2>/dev/null || echo "1000")
@@ -171,9 +182,9 @@ sudo systemctl restart churchbell.service
 sudo systemctl restart churchbell-home.service
 
 # ------------------------------------------------------------
-# 9. PipeWire audio setup (required for Pi3)
+# 10. PipeWire audio setup (required for Pi3)
 # ------------------------------------------------------------
-echo "[9/11] Setting up PipeWire audio system..."
+echo "[10/11] Setting up PipeWire audio system..."
 # Enable and start PipeWire services (may be user or system service)
 if systemctl list-unit-files | grep -q "pipewire.service"; then
     sudo systemctl enable pipewire.service || true
@@ -195,17 +206,6 @@ if command -v pw-play &>/dev/null; then
     echo "[OK] pw-play (PipeWire) is available"
 else
     echo "[WARN] pw-play not found - audio playback may not work"
-fi
-
-# ------------------------------------------------------------
-# 10. SSL Certificate generation
-# ------------------------------------------------------------
-echo "[10/11] Generating SSL certificate for HTTPS..."
-cd "$APP_DIR"
-if [ -f "generate_ssl_cert.sh" ]; then
-    bash generate_ssl_cert.sh || echo "[WARN] SSL certificate generation failed - HTTPS will not work"
-else
-    echo "[WARN] generate_ssl_cert.sh not found - HTTPS will not work"
 fi
 
 # ------------------------------------------------------------

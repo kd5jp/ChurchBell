@@ -15,6 +15,12 @@ echo ""
 # Create ssl directory if it doesn't exist
 mkdir -p "$CERT_DIR"
 
+# Remove old certificates if they exist (to avoid conflicts)
+if [ -f "$CERT_FILE" ] || [ -f "$KEY_FILE" ]; then
+    echo "Removing old certificates..."
+    rm -f "$CERT_FILE" "$KEY_FILE"
+fi
+
 # Get hostname/IP for certificate
 HOSTNAME=$(hostname -f 2>/dev/null || hostname || echo "localhost")
 IP_ADDRESS=$(hostname -I | awk '{print $1}' || echo "127.0.0.1")
