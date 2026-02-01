@@ -110,7 +110,7 @@ pip install flask
 # 7. Permissions for scripts
 # ------------------------------------------------------------
 echo "[7/12] Setting script permissions..."
-SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh backup.sh restore.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
+SCRIPTS=(install.sh update.sh sync_cron.py update_play_alarm_path.py play_alarm.sh play_cron_sound.sh generate_ssl_cert.sh cleanup_ssl_certs.sh diagnostics.sh factory_reset.sh postinstall.sh list_alarms.sh uninstall.sh)
 for script in "${SCRIPTS[@]}"; do
   if [ -f "$APP_DIR/$script" ]; then
     chmod +x "$APP_DIR/$script"
