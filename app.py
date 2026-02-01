@@ -227,7 +227,19 @@ def logout():
 @app.route("/change_password", methods=["POST"])
 @login_required
 def change_password():
-    current = request.form.get("current_password", "")
+    """Change password - users can change their own, admins can change any user's password"""
+    user_id = request.form.get("user_id")
+    
+    # If user_id is provided and current user is admin, allow changing that user's password
+    # Otherwise, user can only change their own password
+    if user_id and is_admin(session["user_id"]):
+        target_user_id = int(user_id)
+        # Admins can change any user's password without current password
+        current = None
+    else:
+        target_user_id = session["user_id"]
+        current = request.form.get("current_password", "")
+    
     new = request.form.get("new_password", "")
     confirm = request.form.get("confirm_password", "")
 
@@ -236,21 +248,62 @@ def change_password():
         return redirect(url_for("users"))
 
     db = get_db()
-    cur = db.execute(
-        "SELECT password FROM users WHERE id = ?",
-        (session["user_id"],),
+    
+    # If changing own password, verify current password
+    if target_user_id == session["user_id"] and current is not None:
+        cur = db.execute(
+            "SELECT password FROM users WHERE id = ?",
+            (target_user_id,),
+        )
+        row = cur.fetchone()
+        if not row or row["password"] != current:
+            flash("Current password is incorrect.", "error")
+            return redirect(url_for("users"))
+
+    # Update the password
+    db.execute(
+        "UPDATE users SET password = ? WHERE id = ?",
+        (new, target_user_id),
     )
-    row = cur.fetchone()
-    if not row or row["password"] != current:
-        flash("Current password is incorrect.", "error")
+    db.commit()
+    
+    if target_user_id == session["user_id"]:
+        flash("Your password has been updated.", "success")
+    else:
+        user = db.execute("SELECT username FROM users WHERE id = ?", (target_user_id,)).fetchone()
+        flash(f"Password updated for user '{user['username']}'.", "success")
+    
+    return redirect(url_for("users"))
+
+@app.route("/admin_change_password/<int:user_id>", methods=["POST"])
+@login_required
+@permission_required("users")
+def admin_change_password(user_id):
+    """Admin-only route to change any user's password"""
+    if not is_admin(session["user_id"]):
+        flash("Only administrators can change other users' passwords.", "error")
+        return redirect(url_for("users"))
+    
+    new = request.form.get("new_password", "")
+    confirm = request.form.get("confirm_password", "")
+
+    if not new or new != confirm:
+        flash("New passwords do not match.", "error")
+        return redirect(url_for("users"))
+
+    db = get_db()
+    user = db.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    
+    if not user:
+        flash("User not found.", "error")
         return redirect(url_for("users"))
 
     db.execute(
         "UPDATE users SET password = ? WHERE id = ?",
-        (new, session["user_id"]),
+        (new, user_id),
     )
     db.commit()
-    flash("Password updated.", "success")
+    flash(f"Password updated for user '{user['username']}'.", "success")
     return redirect(url_for("users"))
 
 
