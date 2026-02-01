@@ -123,6 +123,9 @@ done
 # ------------------------------------------------------------
 echo "[7/9] Installing systemd services..."
 
+# Get user ID for XDG_RUNTIME_DIR
+SERVICE_UID=$(id -u "$SERVICE_USER" 2>/dev/null || echo "1000")
+
 sudo bash -c "cat > $SERVICE_FILE" <<EOF
 [Unit]
 Description=ChurchBell Web UI
@@ -134,6 +137,7 @@ User=$SERVICE_USER
 WorkingDirectory=$APP_DIR
 Environment="CHURCHBELL_ADMIN_USER=${ADMIN_USER}"
 Environment="CHURCHBELL_ADMIN_PASS=${ADMIN_PASS}"
+Environment="XDG_RUNTIME_DIR=/run/user/${SERVICE_UID}"
 ExecStart=$APP_DIR/venv/bin/python app.py
 Restart=always
 

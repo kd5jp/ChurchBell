@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import subprocess
+import pwd
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g
 
@@ -458,6 +459,17 @@ def play_sound(sound_path):
         print(f"[ERROR] {error_msg}", flush=True)
         return {"error": True, "message": error_msg, "command": " ".join(cmd)}
     
+    # Get the current user's environment for PipeWire session
+    import pwd
+    current_user = pwd.getpwuid(os.getuid()).pw_name
+    user_home = pwd.getpwuid(os.getuid()).pw_dir
+    
+    # Set up environment for PipeWire user session
+    env = os.environ.copy()
+    env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+    env["HOME"] = user_home
+    env["USER"] = current_user
+    
     try:
         # Capture stderr to see any errors
         result = subprocess.run(
@@ -466,12 +478,14 @@ def play_sound(sound_path):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         
         if result.returncode != 0:
             error_msg = f"pw-play failed (exit code {result.returncode}): {result.stderr}"
             print(f"[ERROR] {error_msg}", flush=True)
+            print(f"[DEBUG] User: {current_user}, UID: {os.getuid()}, XDG_RUNTIME_DIR: {env.get('XDG_RUNTIME_DIR')}", flush=True)
             return {
                 "error": True, 
                 "message": error_msg, 
@@ -488,6 +502,8 @@ def play_sound(sound_path):
     except Exception as e:
         error_msg = f"Exception running pw-play: {str(e)}"
         print(f"[ERROR] {error_msg}", flush=True)
+        import traceback
+        print(f"[ERROR] Traceback: {traceback.format_exc()}", flush=True)
         return {"error": True, "message": error_msg, "command": " ".join(cmd)}
 
 
