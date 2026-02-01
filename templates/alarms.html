@@ -1,44 +1,12 @@
 {% extends "base.html" %}
 
+{% block title %}Bell Scheduler - ChurchBell System{% endblock %}
+
 {% block content %}
-
-<!-- Header -->
-<div class="header">
-  <div class="header-title">
-    <i class="bi bi-bell-fill"></i>
-    <div>
-      <h1>ChurchBell System</h1>
-      <span class="subtitle">Bell Scheduler & Management</span>
-    </div>
-  </div>
-  <div class="header-actions">
-    <div class="clock-display">
-      <i class="bi bi-clock"></i>
-      <span id="system-clock"></span>
-    </div>
-    <div class="user-info">
-      <i class="bi bi-person-circle"></i>
-      <span>Logged in as <strong>{{ session.username }}</strong></span>
-    </div>
-    <form method="post" action="{{ url_for('change_password') }}" class="password-form">
-      <input type="password" name="current_password" placeholder="Current" class="form-control form-control-sm" required>
-      <input type="password" name="new_password" placeholder="New" class="form-control form-control-sm" required>
-      <input type="password" name="confirm_password" placeholder="Confirm" class="form-control form-control-sm" required>
-      <button type="submit" class="btn btn-sm btn-outline-primary">
-        <i class="bi bi-key"></i> Change Password
-      </button>
-    </form>
-    <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-danger">
-      <i class="bi bi-box-arrow-right"></i> Logout
-    </a>
-  </div>
-</div>
-
-<!-- Alarms List -->
 <div class="card">
-  <div class="card-header">
-    <i class="bi bi-calendar-event"></i>
-    Scheduled Alarms
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Scheduled Alarms</h5>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-secondary">Back to Dashboard</a>
   </div>
   <div class="card-body">
     {% if alarms %}
@@ -49,75 +17,29 @@
             <th>Day</th>
             <th>Time</th>
             <th>Sound</th>
-            <th class="text-center">Status</th>
-            <th class="text-center">Actions</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {% set days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] %}
           {% for alarm in alarms %}
           <tr>
+            <td>{{ days[alarm.day_of_week] }}</td>
+            <td>{{ alarm.time_str }}</td>
+            <td>{{ alarm.sound_path.split('/')[-1] }}</td>
             <td>
-              <form method="POST" action="{{ url_for('update_alarm', alarm_id=alarm.id) }}" id="alarm-{{ alarm.id }}" class="d-inline">
-                <select name="day" class="form-select form-select-sm" style="min-width: 140px;" onchange="this.form.submit()">
-                  {% for i in range(7) %}
-                    <option value="{{ i }}" {% if i == alarm.day_of_week %}selected{% endif %}>{{ days[i] }}</option>
-                  {% endfor %}
-                </select>
-                <input type="hidden" name="time" value="{{ alarm.time_str }}">
-                <input type="hidden" name="sound" value="{{ alarm.sound_path }}">
-                <input type="hidden" name="enabled" value="{{ 'on' if alarm.enabled else '' }}">
-              </form>
-            </td>
-            <td>
-              <form method="POST" action="{{ url_for('update_alarm', alarm_id=alarm.id) }}" id="alarm-time-{{ alarm.id }}" class="d-inline">
-                <input type="time" name="time" value="{{ alarm.time_str }}" class="form-control form-control-sm" 
-                       style="min-width: 120px;" onchange="this.form.submit()" required>
-                <input type="hidden" name="day" value="{{ alarm.day_of_week }}">
-                <input type="hidden" name="sound" value="{{ alarm.sound_path }}">
-                <input type="hidden" name="enabled" value="{{ 'on' if alarm.enabled else '' }}">
-              </form>
-            </td>
-            <td>
-              <form method="POST" action="{{ url_for('update_alarm', alarm_id=alarm.id) }}" id="alarm-sound-{{ alarm.id }}" class="d-inline">
-                <select name="sound" class="form-select form-select-sm" style="min-width: 200px;" onchange="this.form.submit()">
-                  {% for s in sounds %}
-                    <option value="sounds/{{ s }}" {% if alarm.sound_path.endswith(s) %}selected{% endif %}>{{ s }}</option>
-                  {% endfor %}
-                </select>
-                <input type="hidden" name="day" value="{{ alarm.day_of_week }}">
-                <input type="hidden" name="time" value="{{ alarm.time_str }}">
-                <input type="hidden" name="enabled" value="{{ 'on' if alarm.enabled else '' }}">
-              </form>
-            </td>
-            <td class="text-center">
               {% if alarm.enabled %}
-                <span class="badge badge-success">
-                  <i class="bi bi-check-circle-fill"></i> Enabled
-                </span>
+                <span class="badge bg-success">Enabled</span>
               {% else %}
-                <span class="badge badge-danger">
-                  <i class="bi bi-x-circle-fill"></i> Disabled
-                </span>
+                <span class="badge bg-secondary">Disabled</span>
               {% endif %}
             </td>
-            <td class="text-center">
-              <div class="btn-group" role="group">
-                <a href="{{ url_for('test_sound', filename=alarm.sound_path.split('/')[-1]) }}" 
-                   class="btn btn-sm btn-secondary" title="Test Sound">
-                  <i class="bi bi-play-fill"></i>
-                </a>
-                <a href="{{ url_for('toggle_alarm', alarm_id=alarm.id) }}" 
-                   class="btn btn-sm btn-warning" title="Toggle Status">
-                  <i class="bi bi-toggle-{{ 'on' if alarm.enabled else 'off' }}"></i>
-                </a>
-                <a href="{{ url_for('delete_alarm', alarm_id=alarm.id) }}" 
-                   class="btn btn-sm btn-danger" 
-                   onclick="return confirm('Are you sure you want to delete this alarm?')" 
-                   title="Delete">
-                  <i class="bi bi-trash-fill"></i>
-                </a>
-              </div>
+            <td>
+              <a href="{{ url_for('toggle_alarm', alarm_id=alarm.id) }}" class="btn btn-sm btn-warning">Toggle</a>
+              <a href="{{ url_for('delete_alarm', alarm_id=alarm.id) }}" 
+                 class="btn btn-sm btn-danger"
+                 onclick="return confirm('Delete this alarm?')">Delete</a>
             </td>
           </tr>
           {% endfor %}
@@ -125,111 +47,79 @@
       </table>
     </div>
     {% else %}
-    <div class="empty-state">
-      <i class="bi bi-bell-slash"></i>
-      <h3>No Alarms Scheduled</h3>
-      <p>Add your first alarm using the form below</p>
-    </div>
+    <p class="text-muted">No alarms scheduled.</p>
     {% endif %}
   </div>
 </div>
 
-<!-- Add Alarm Section -->
 <div class="card">
   <div class="card-header">
-    <i class="bi bi-plus-circle-fill"></i>
-    Add New Alarm
+    <h5 class="mb-0">Add New Alarm</h5>
   </div>
   <div class="card-body">
-    <form method="post" action="{{ url_for('add_alarm') }}" class="row g-3">
-      <div class="col-md-3">
-        <label class="form-label fw-semibold">
-          <i class="bi bi-calendar3"></i> Day of Week
-        </label>
-        <select name="day_of_week" class="form-select" required>
-          {% for i in range(7) %}
-            <option value="{{ i }}" {% if i == 0 %}selected{% endif %}>{{ days[i] }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label fw-semibold">
-          <i class="bi bi-clock"></i> Time
-        </label>
-        <input type="time" name="time_str" class="form-control" required>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label fw-semibold">
-          <i class="bi bi-music-note-beamed"></i> Sound File
-        </label>
-        <select name="sound_path" class="form-select" required>
-          {% if sounds %}
+    <form method="post" action="{{ url_for('add_alarm') }}">
+      <div class="row">
+        <div class="col-md-3 mb-3">
+          <label class="form-label">Day</label>
+          <select name="day_of_week" class="form-select" required>
+            {% for i in range(7) %}
+              <option value="{{ i }}">{{ ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][i] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="form-label">Time</label>
+          <input type="time" name="time_str" class="form-control" required>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Sound</label>
+          <select name="sound_path" class="form-select" required>
             {% for s in sounds %}
               <option value="sounds/{{ s }}">{{ s }}</option>
             {% endfor %}
-          {% else %}
-            <option value="sounds/chime.wav">chime.wav (default)</option>
-          {% endif %}
-        </select>
-      </div>
-      <div class="col-md-2 d-flex align-items-end">
-        <div class="form-check form-switch">
-          <input type="checkbox" name="enabled" class="form-check-input" id="enabled-switch" checked>
-          <label class="form-check-label fw-semibold" for="enabled-switch">Enabled</label>
+          </select>
+        </div>
+        <div class="col-md-2 mb-3 d-flex align-items-end">
+          <div class="form-check">
+            <input type="checkbox" name="enabled" class="form-check-input" id="enabled" checked>
+            <label class="form-check-label" for="enabled">Enabled</label>
+          </div>
         </div>
       </div>
-      <div class="col-12">
-        <button type="submit" class="btn btn-primary">
-          <i class="bi bi-plus-circle"></i> Add Alarm
-        </button>
-      </div>
+      <button type="submit" class="btn btn-primary">Add Alarm</button>
     </form>
   </div>
 </div>
 
-<!-- Sound Management Section -->
 <div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <div>
-      <i class="bi bi-file-earmark-music"></i>
-      Sound Library
-    </div>
-    <form method="POST" action="{{ url_for('upload_sound') }}" enctype="multipart/form-data" class="d-flex gap-2">
-      <input type="file" name="file" accept=".wav" class="form-control form-control-sm" style="max-width: 200px;" required>
-      <button type="submit" class="btn btn-sm btn-primary">
-        <i class="bi bi-upload"></i> Upload
-      </button>
-    </form>
+  <div class="card-header">
+    <h5 class="mb-0">Sound Files</h5>
   </div>
   <div class="card-body">
+    <form method="POST" action="{{ url_for('upload_sound') }}" enctype="multipart/form-data" class="mb-3">
+      <div class="input-group">
+        <input type="file" name="file" accept=".wav" class="form-control" required>
+        <button type="submit" class="btn btn-primary">Upload</button>
+      </div>
+    </form>
     {% if sounds %}
     <div class="table-responsive">
-      <table class="table table-hover">
+      <table class="table table-sm">
         <thead>
           <tr>
             <th>Filename</th>
-            <th class="text-center">Actions</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for s in sounds %}
           <tr>
+            <td>{{ s }}</td>
             <td>
-              <i class="bi bi-file-earmark-music-fill text-primary me-2"></i>
-              {{ s }}
-            </td>
-            <td class="text-center">
-              <div class="btn-group" role="group">
-                <a href="{{ url_for('test_sound', filename=s) }}" class="btn btn-sm btn-secondary" title="Test">
-                  <i class="bi bi-play-fill"></i> Test
-                </a>
-                <a href="{{ url_for('delete_sound', filename=s) }}" 
-                   class="btn btn-sm btn-danger"
-                   onclick="return confirm('Are you sure you want to delete {{ s }}?')" 
-                   title="Delete">
-                  <i class="bi bi-trash-fill"></i> Delete
-                </a>
-              </div>
+              <a href="{{ url_for('test_sound', filename=s) }}" class="btn btn-sm btn-secondary">Test</a>
+              <a href="{{ url_for('delete_sound', filename=s) }}" 
+                 class="btn btn-sm btn-danger"
+                 onclick="return confirm('Delete {{ s }}?')">Delete</a>
             </td>
           </tr>
           {% endfor %}
@@ -237,34 +127,37 @@
       </table>
     </div>
     {% else %}
-    <div class="empty-state">
-      <i class="bi bi-folder-x"></i>
-      <h3>No Sound Files</h3>
-      <p>Upload a .wav file to get started</p>
-    </div>
+    <p class="text-muted">No sound files uploaded.</p>
     {% endif %}
   </div>
 </div>
 
+{% if volume is defined %}
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Volume Control</h5>
+  </div>
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-3">
+      <label>Volume: <span id="volume-value">{{ volume }}%</span></label>
+      <input type="range" class="form-range" id="volume-slider" min="0" max="100" value="{{ volume }}" 
+             oninput="updateVolume(this.value)" style="flex: 1; max-width: 300px;">
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
-  // Update clock display
-  function updateClock() {
-    const now = new Date();
-    const options = { 
-      weekday: 'short', 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit'
-    };
-    document.getElementById("system-clock").textContent = now.toLocaleString('en-US', options);
-  }
-  setInterval(updateClock, 1000);
-  updateClock();
+function updateVolume(value) {
+  document.getElementById('volume-value').textContent = value + '%';
+  fetch('/set_volume', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'volume=' + value
+  });
+}
 </script>
 {% endblock %}

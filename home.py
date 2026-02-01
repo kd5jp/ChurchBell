@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, redirect
 import subprocess
 
 app = Flask(__name__)
@@ -27,8 +27,10 @@ def get_service_status(service):
 
 @app.route("/")
 def index():
+    # Redirect to port 8080 login
     host = request.host.split(":")[0]
-    scheduler_url = f"http://{host}:8080"
+    from flask import redirect
+    return redirect(f"http://{host}:8080/login", code=302)
 
     # Get service statuses
     home_status, home_logs = get_service_status("churchbell-home.service")

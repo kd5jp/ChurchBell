@@ -1,31 +1,28 @@
 {% extends "base.html" %}
 
+{% block title %}Login - ChurchBell System{% endblock %}
+
 {% block content %}
-<div class="main-container" style="max-width: 450px;">
-  <div class="card" style="margin-top: 100px;">
-    <div class="card-header text-center">
-      <i class="bi bi-bell-fill" style="font-size: 48px; color: var(--primary-color);"></i>
-      <h2 style="margin: 16px 0 0 0;">ChurchBell System</h2>
-      <p style="margin: 8px 0 0 0; color: var(--text-secondary); font-size: 14px;">Bell Scheduler & Management</p>
-    </div>
-    <div class="card-body">
-      <form method="post">
-        <div class="mb-3">
-          <label class="form-label fw-semibold">
-            <i class="bi bi-person"></i> Username
-          </label>
-          <input type="text" name="username" class="form-control" autofocus required>
-        </div>
-        <div class="mb-4">
-          <label class="form-label fw-semibold">
-            <i class="bi bi-lock"></i> Password
-          </label>
-          <input type="password" name="password" class="form-control" required>
-        </div>
-        <button type="submit" class="btn btn-primary w-100" style="padding: 12px;">
-          <i class="bi bi-box-arrow-in-right"></i> Login
-        </button>
-      </form>
+<div class="row justify-content-center">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header text-center">
+        <h4>ChurchBell System</h4>
+        <p class="mb-0 text-muted">Please login</p>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" name="username" class="form-control" autofocus required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Login</button>
+        </form>
+      </div>
     </div>
   </div>
 </div>

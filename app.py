@@ -127,7 +127,7 @@ def login():
         if row and row["password"] == password:
             session["user_id"] = row["id"]
             session["username"] = username
-            return redirect(url_for("alarms"))
+            return redirect(url_for("dashboard"))
         flash("Invalid username or password", "error")
     return render_template("login.html")
 
@@ -145,7 +145,7 @@ def change_password():
 
     if not new or new != confirm:
         flash("New passwords do not match.", "error")
-        return redirect(url_for("alarms"))
+        return redirect(url_for("users"))
 
     db = get_db()
     cur = db.execute(
@@ -155,7 +155,7 @@ def change_password():
     row = cur.fetchone()
     if not row or row["password"] != current:
         flash("Current password is incorrect.", "error")
-        return redirect(url_for("alarms"))
+        return redirect(url_for("users"))
 
     db.execute(
         "UPDATE users SET password = ? WHERE id = ?",
@@ -163,12 +163,78 @@ def change_password():
     )
     db.commit()
     flash("Password updated.", "success")
-    return redirect(url_for("alarms"))
+    return redirect(url_for("users"))
+
+
+# ---------- dashboard ----------
+
+@app.route("/")
+@login_required
+def dashboard():
+    db = get_db()
+    alarm_count = db.execute("SELECT COUNT(*) as c FROM alarms").fetchone()["c"]
+    enabled_count = db.execute("SELECT COUNT(*) as c FROM alarms WHERE enabled = 1").fetchone()["c"]
+    
+    return render_template(
+        "dashboard.html",
+        alarm_count=alarm_count,
+        enabled_count=enabled_count,
+    )
+
+
+# ---------- user management ----------
+
+@app.route("/users")
+@login_required
+def users():
+    db = get_db()
+    users_list = db.execute("SELECT id, username FROM users ORDER BY id").fetchall()
+    return render_template("users.html", users=users_list)
+
+@app.route("/add_user", methods=["POST"])
+@login_required
+def add_user():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    
+    if not username or not password:
+        flash("Username and password are required.", "error")
+        return redirect(url_for("users"))
+    
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?)",
+            (username, password),
+        )
+        db.commit()
+        flash(f"User '{username}' added successfully.", "success")
+    except sqlite3.IntegrityError:
+        flash(f"Username '{username}' already exists.", "error")
+    
+    return redirect(url_for("users"))
+
+@app.route("/delete_user/<int:user_id>")
+@login_required
+def delete_user(user_id):
+    # Prevent deleting yourself
+    if user_id == session["user_id"]:
+        flash("You cannot delete your own account.", "error")
+        return redirect(url_for("users"))
+    
+    db = get_db()
+    user = db.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user:
+        db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        db.commit()
+        flash(f"User '{user['username']}' deleted.", "success")
+    
+    return redirect(url_for("users"))
 
 
 # ---------- alarms ----------
 
-@app.route("/")
+@app.route("/alarms")
 @login_required
 def alarms():
     db = get_db()
@@ -185,10 +251,15 @@ def alarms():
     ).fetchone()
     volume = settings["volume"] if settings else 70
 
-    sound_files = sorted([
-        f for f in os.listdir(SOUNDS_DIR)
-        if f.lower().endswith(".wav")
-    ])
+    sound_files = []
+    if SOUNDS_DIR.exists():
+        try:
+            sound_files = sorted([
+                f for f in os.listdir(SOUNDS_DIR)
+                if f.lower().endswith(".wav")
+            ])
+        except Exception:
+            sound_files = []
 
     return render_template(
         "alarms.html",
@@ -286,6 +357,8 @@ def test_sound(filename):
 def upload_sound():
     file = request.files.get("file")
     if file and file.filename.lower().endswith(".wav"):
+        if not SOUNDS_DIR.exists():
+            SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
         dest = SOUNDS_DIR / file.filename
         file.save(dest)
     return redirect(url_for("alarms"))
@@ -353,5 +426,8 @@ def play_sound(sound_path):
 if __name__ == "__main__":
     if not SOUNDS_DIR.exists():
         SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Warning: Database initialization issue: {e}")
     app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)

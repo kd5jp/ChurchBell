@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - ChurchBell System{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">User Management</h5>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-secondary">Back to Dashboard</a>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>
+              <a href="{{ url_for('delete_user', user_id=user.id) }}" 
+                 class="btn btn-sm btn-danger"
+                 onclick="return confirm('Delete user {{ user.username }}?')">Delete</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Add New User</h5>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('add_user') }}">
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Username</label>
+          <input type="text" name="username" class="form-control" required>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Password</label>
+          <input type="password" name="password" class="form-control" required>
+        </div>
+        <div class="col-md-4 mb-3 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary">Add User</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Change Your Password</h5>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('change_password') }}">
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Current Password</label>
+          <input type="password" name="current_password" class="form-control" required>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">New Password</label>
+          <input type="password" name="new_password" class="form-control" required>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" name="confirm_password" class="form-control" required>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Change Password</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

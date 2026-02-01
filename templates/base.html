@@ -3,402 +3,62 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChurchBell System - Bell Scheduler</title>
-  
-  <!-- Bootstrap 5.3 CSS -->
+  <title>{% block title %}ChurchBell System{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  
-  <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-  
   <style>
-    :root {
-      --primary-color: #2563eb;
-      --primary-dark: #1e40af;
-      --secondary-color: #64748b;
-      --success-color: #10b981;
-      --danger-color: #ef4444;
-      --warning-color: #f59e0b;
-      --bg-light: #f8fafc;
-      --bg-white: #ffffff;
-      --border-color: #e2e8f0;
-      --text-primary: #1e293b;
-      --text-secondary: #64748b;
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
-      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f5f5f5;
+      padding-top: 20px;
     }
-
-    .main-container {
-      max-width: 1400px;
-      margin: 0 auto;
+    .navbar {
+      background-color: #343a40;
+      margin-bottom: 30px;
     }
-
-    .header {
-      background: var(--bg-white);
-      border-radius: 16px;
-      padding: 24px 32px;
-      margin-bottom: 24px;
-      box-shadow: var(--shadow-lg);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    .header-title {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin: 0;
-    }
-
-    .header-title i {
-      font-size: 32px;
-      color: var(--primary-color);
-    }
-
-    .header-title h1 {
-      font-size: 28px;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin: 0;
-    }
-
-    .header-title .subtitle {
-      font-size: 14px;
-      color: var(--text-secondary);
-      font-weight: 400;
-      margin-left: 8px;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .clock-display {
-      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-      color: white;
-      padding: 12px 24px;
-      border-radius: 12px;
-      font-size: 18px;
+    .navbar-brand {
       font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      box-shadow: var(--shadow-md);
     }
-
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
-
-    .user-info i {
-      color: var(--primary-color);
-    }
-
     .card {
-      background: var(--bg-white);
-      border-radius: 16px;
       border: none;
-      box-shadow: var(--shadow-md);
-      margin-bottom: 24px;
-      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
     }
-
     .card-header {
-      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-      border-bottom: 2px solid var(--border-color);
-      padding: 20px 24px;
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
       font-weight: 600;
-      font-size: 18px;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 10px;
     }
-
-    .card-header i {
-      color: var(--primary-color);
-    }
-
-    .card-body {
-      padding: 24px;
-    }
-
-    .btn {
-      border-radius: 8px;
-      font-weight: 500;
-      padding: 8px 16px;
-      transition: all 0.2s;
-      border: none;
-      color: white;
-    }
-
     .btn-primary {
-      background: var(--primary-color);
+      background-color: #007bff;
+      border-color: #007bff;
     }
-
     .btn-primary:hover {
-      background: var(--primary-dark);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-      color: white;
-    }
-
-    .btn-success {
-      background: var(--success-color);
-    }
-
-    .btn-danger {
-      background: var(--danger-color);
-    }
-
-    .btn-warning {
-      background: var(--warning-color);
-    }
-
-    .btn-secondary {
-      background: var(--secondary-color);
-    }
-
-    .btn-outline-primary {
-      border: 1px solid var(--primary-color);
-      color: var(--primary-color);
-      background: transparent;
-    }
-
-    .btn-outline-primary:hover {
-      background: var(--primary-color);
-      color: white;
-    }
-
-    .btn-outline-danger {
-      border: 1px solid var(--danger-color);
-      color: var(--danger-color);
-      background: transparent;
-    }
-
-    .btn-outline-danger:hover {
-      background: var(--danger-color);
-      color: white;
-    }
-
-    .btn-sm {
-      padding: 6px 12px;
-      font-size: 13px;
-    }
-
-    .form-control, .form-select {
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
-      padding: 10px 14px;
-      transition: all 0.2s;
-    }
-
-    .form-control:focus, .form-select:focus {
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-    }
-
-    .table {
-      margin-bottom: 0;
-    }
-
-    .table thead {
-      background: var(--bg-light);
-    }
-
-    .table thead th {
-      border-bottom: 2px solid var(--border-color);
-      font-weight: 600;
-      color: var(--text-primary);
-      padding: 14px;
-      text-transform: uppercase;
-      font-size: 12px;
-      letter-spacing: 0.5px;
-    }
-
-    .table tbody td {
-      padding: 16px 14px;
-      vertical-align: middle;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .table tbody tr:hover {
-      background: var(--bg-light);
-    }
-
-    .badge {
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-weight: 500;
-      font-size: 12px;
-    }
-
-    .badge-success {
-      background: #d1fae5;
-      color: #065f46;
-    }
-
-    .badge-danger {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .alert {
-      border-radius: 12px;
-      border: none;
-      padding: 16px 20px;
-      margin-bottom: 24px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .alert-success {
-      background: #d1fae5;
-      color: #065f46;
-    }
-
-    .alert-danger {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .volume-control {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(30, 41, 59, 0.95);
-      backdrop-filter: blur(10px);
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1);
-      z-index: 1000;
-    }
-
-    .volume-control label {
-      color: white;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0;
-    }
-
-    .volume-control input[type="range"] {
-      flex: 1;
-      max-width: 400px;
-    }
-
-    .volume-control .volume-value {
-      color: white;
-      font-weight: 600;
-      min-width: 45px;
-      text-align: right;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--text-secondary);
-    }
-
-    .empty-state i {
-      font-size: 64px;
-      color: var(--border-color);
-      margin-bottom: 16px;
-    }
-
-    .empty-state h3 {
-      font-size: 20px;
-      margin-bottom: 8px;
-      color: var(--text-primary);
-    }
-
-    .password-form {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .password-form .form-control-sm {
-      max-width: 120px;
-    }
-
-    @media (max-width: 768px) {
-      body {
-        padding: 12px;
-      }
-
-      .header {
-        padding: 16px 20px;
-      }
-
-      .header-title h1 {
-        font-size: 22px;
-      }
-
-      .clock-display {
-        font-size: 14px;
-        padding: 10px 16px;
-      }
-
-      .card-body {
-        padding: 16px;
-      }
-
-      .table {
-        font-size: 14px;
-      }
-
-      .btn-sm {
-        padding: 4px 8px;
-        font-size: 12px;
-      }
-
-      .password-form {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .password-form .form-control-sm {
-        max-width: 100%;
-      }
+      background-color: #0056b3;
+      border-color: #0056b3;
     }
   </style>
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
-  <div class="main-container">
-    <!-- Flash Messages -->
+  {% if session.user_id %}
+  <nav class="navbar navbar-dark navbar-expand-lg">
+    <div class="container">
+      <a class="navbar-brand" href="{{ url_for('dashboard') }}">ChurchBell System</a>
+      <div class="navbar-nav ms-auto">
+        <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="nav-link" href="{{ url_for('alarms') }}">Bell Scheduler</a>
+        <a class="nav-link" href="{{ url_for('users') }}">User Management</a>
+        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </div>
+  </nav>
+  {% endif %}
+
+  <div class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
           <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
-            <i class="bi bi-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }}-fill me-2"></i>
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
           </div>
@@ -409,45 +69,7 @@
     {% block content %}{% endblock %}
   </div>
 
-  <!-- Volume Control (only shown when logged in) -->
-  {% if session.user_id %}
-  <div class="volume-control">
-    <label for="volume-slider">
-      <i class="bi bi-volume-up-fill"></i>
-      Volume
-    </label>
-    <input type="range" class="form-range" id="volume-slider" min="0" max="100" value="{{ volume }}" 
-           oninput="updateVolume(this.value)">
-    <span class="volume-value" id="volume-value">{{ volume }}%</span>
-  </div>
-  {% endif %}
-
-  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  
-  <script>
-    // Update volume display and send to server
-    function updateVolume(value) {
-      document.getElementById('volume-value').textContent = value + '%';
-      fetch('/set_volume', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'volume=' + value
-      });
-    }
-
-    // Auto-dismiss alerts after 5 seconds
-    setTimeout(function() {
-      const alerts = document.querySelectorAll('.alert');
-      alerts.forEach(function(alert) {
-        const bsAlert = new bootstrap.Alert(alert);
-        bsAlert.close();
-      });
-    }, 5000);
-  </script>
-
-  {% block scripts %}{% endblock %}
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
